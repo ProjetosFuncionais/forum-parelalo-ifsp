@@ -4,7 +4,7 @@ import { Navigate, routeHref } from '../lib/router';
 import { cx } from './ui';
 import {
   Home, Compass, CalendarDays, MessageCircle, Bell, Bookmark,
-  User as UserIcon, Shield, Settings, PenSquare, LucideIcon
+  User as UserIcon, Shield, Settings, LucideIcon
 } from 'lucide-react';
 
 interface NavItem {
@@ -39,10 +39,9 @@ interface SidebarProps {
   currentView: string;
   currentParam?: string;
   onNavigate: Navigate;
-  onOpenCreatePost: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ currentView, currentParam, onNavigate, onOpenCreatePost }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ currentView, currentParam, onNavigate }) => {
   const { currentUser } = useAuth();
   const items = useNavItems();
 
@@ -79,15 +78,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, currentParam, onN
           );
         })}
 
-        {currentUser && (
-          <button
-            onClick={onOpenCreatePost}
-            className="mt-4 w-full h-10 rounded-md bg-accent text-accent-fg text-sm font-medium inline-flex items-center justify-center gap-2 hover:bg-accent-hover transition-colors"
-          >
-            <PenSquare className="w-4 h-4" />
-            Nova publicação
-          </button>
-        )}
       </nav>
     </aside>
   );

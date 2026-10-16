@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { useHashRoute } from './lib/router';
 import { Navbar } from './components/Navbar';
@@ -83,7 +83,7 @@ function MainAppContent() {
         )}
       >
         {!isAuth && (
-          <Sidebar currentView={view} currentParam={param} onNavigate={navigate} onOpenCreatePost={openComposer} />
+          <Sidebar currentView={view} currentParam={param} onNavigate={navigate} />
         )}
 
         <main id="main" className="flex-1 min-w-0">

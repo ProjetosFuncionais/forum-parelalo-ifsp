@@ -1,430 +1,298 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { IFSP_CAMPUSES } from '../data/campuses';
-import { 
-  LogIn, UserPlus, KeyRound, CheckCircle2, 
-  AlertCircle, ShieldCheck, ArrowRight
-} from 'lucide-react';
+import { UserAvatar } from '../components/UserAvatar';
+import { Button, Field, Panel, cx, inputClass } from '../components/ui';
+import { ROLE_LABELS } from '../lib/format';
 
 interface AuthViewProps {
   onSuccess: () => void;
 }
 
+type Mode = 'login' | 'register' | 'forgot';
+
 export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
   const { login, register, availableUsers, switchUser } = useAuth();
-  
-  const [tab, setTab] = useState<'login' | 'register' | 'forgot'>('login');
-  const [errorMsg, setErrorMsg] = useState('');
-  const [successMsg, setSuccessMsg] = useState('');
+  const [mode, setMode] = useState<Mode>('login');
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Login form
-  const [loginIdentifier, setLoginIdentifier] = useState('');
-  const [loginPassword, setLoginPassword] = useState('');
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
 
-  // Register form
-  const [regName, setRegName] = useState('');
-  const [regUsername, setRegUsername] = useState('');
-  const [regEmail, setRegEmail] = useState('');
-  const [regCampus, setRegCampus] = useState(IFSP_CAMPUSES[0].name);
-  const [regCourse, setRegCourse] = useState(IFSP_CAMPUSES[0].courses[0]);
-  const [regSemester, setRegSemester] = useState(1);
+  const [name, setName] = useState('');
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
+  const [campus, setCampus] = useState(IFSP_CAMPUSES[0].name);
+  const [course, setCourse] = useState(IFSP_CAMPUSES[0].courses[0]);
+  const [semester, setSemester] = useState('1');
   const [regPassword, setRegPassword] = useState('');
-  const [regConfirmPassword, setRegConfirmPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
 
-  // Forgot password
-  const [forgotEmail, setForgotEmail] = useState('');
-
-  const handleLoginSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMsg('');
-    setLoading(true);
-
-    const res = await login(loginIdentifier, loginPassword);
-    setLoading(false);
-
-    if (res.success) {
-      onSuccess();
-    } else {
-      setErrorMsg(res.message || 'Falha ao autenticar.');
-    }
+  const switchMode = (next: Mode) => {
+    setMode(next);
+    setError('');
+    setNotice('');
   };
 
-  const handleRegisterSubmit = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErrorMsg('');
+    setError('');
+    setLoading(true);
+    const res = await login(identifier, password);
+    setLoading(false);
+    if (res.success) onSuccess();
+    else setError(res.message || 'Não foi possível entrar.');
+  };
 
-    if (regPassword !== regConfirmPassword) {
-      setErrorMsg('As senhas não coincidem.');
-      return;
-    }
-
-    if (regPassword.length < 6) {
-      setErrorMsg('A senha deve possuir pelo menos 6 caracteres.');
-      return;
-    }
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    if (regPassword.length < 6) return setError('A senha precisa ter pelo menos 6 caracteres.');
+    if (regPassword !== confirm) return setError('As senhas não são iguais.');
 
     setLoading(true);
-    const res = await register({
-      name: regName,
-      username: regUsername,
-      email: regEmail,
-      campus: regCampus,
-      course: regCourse,
-      semester: Number(regSemester)
-    });
+    const res = await register({ name, username, email, campus, course, semester: Number(semester) || 1 });
     setLoading(false);
-
-    if (res.success) {
-      onSuccess();
-    } else {
-      setErrorMsg(res.message || 'Erro ao realizar cadastro.');
-    }
+    if (res.success) onSuccess();
+    else setError(res.message || 'Não foi possível criar a conta.');
   };
 
-  const handleForgotSubmit = (e: React.FormEvent) => {
+  const handleForgot = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!forgotEmail.trim()) return;
-    setSuccessMsg(`Instruções de redefinição enviadas para ${forgotEmail}. Verifique sua caixa de entrada institucional.`);
+    setNotice(
+      'Este protótipo não envia e-mails. Use uma das contas de demonstração abaixo ou crie uma conta nova.'
+    );
   };
 
-  const handleQuickDemoLogin = (userId: string) => {
-    switchUser(userId);
-    onSuccess();
-  };
-
-  const currentCampusData = IFSP_CAMPUSES.find(c => c.name === regCampus) || IFSP_CAMPUSES[0];
+  const courses = IFSP_CAMPUSES.find(c => c.name === campus)?.courses ?? [];
+  const demoUsers = availableUsers.filter(u => !u.isSuspended).slice(0, 5);
 
   return (
-    <div className="max-w-md mx-auto w-full my-4 space-y-4">
-      
-      {/* Brand Header */}
-      <div className="text-center space-y-2">
-        <div className="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-extrabold text-xl mx-auto shadow-md">
-          IF
-        </div>
-        <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-          Fórum Paralelo <span className="text-emerald-600 dark:text-emerald-400">IFSP</span>
+    <div className="max-w-[26rem] mx-auto w-full px-4 sm:px-0 py-4 sm:py-8">
+      <Panel className="!border sm:!rounded-lg rounded-lg px-5 py-6">
+        <h1 className="text-xl font-semibold">
+          {mode === 'login' && 'Entrar'}
+          {mode === 'register' && 'Criar conta'}
+          {mode === 'forgot' && 'Recuperar acesso'}
         </h1>
-        <p className="text-xs text-slate-500 max-w-xs mx-auto">
-          Comunidade acadêmica independente para troca de ideias, eventos, estudos e projetos.
+        <p className="text-sm text-muted mt-1">
+          {mode === 'login' && 'Use seu usuário ou e-mail institucional.'}
+          {mode === 'register' && 'Leva menos de um minuto.'}
+          {mode === 'forgot' && 'Informe o e-mail usado no cadastro.'}
         </p>
-      </div>
 
-      {/* Main Auth Container */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
-        
-        {/* Navigation Tabs */}
-        <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs font-semibold mb-5">
-          <button
-            onClick={() => {
-              setTab('login');
-              setErrorMsg('');
-              setSuccessMsg('');
-            }}
-            className={`flex-1 py-2 rounded-lg transition-colors ${
-              tab === 'login'
-                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
-                : 'text-slate-600 dark:text-slate-400'
-            }`}
-          >
-            Entrar
-          </button>
-
-          <button
-            onClick={() => {
-              setTab('register');
-              setErrorMsg('');
-              setSuccessMsg('');
-            }}
-            className={`flex-1 py-2 rounded-lg transition-colors ${
-              tab === 'register'
-                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
-                : 'text-slate-600 dark:text-slate-400'
-            }`}
-          >
-            Criar Conta
-          </button>
-
-          <button
-            onClick={() => {
-              setTab('forgot');
-              setErrorMsg('');
-              setSuccessMsg('');
-            }}
-            className={`flex-1 py-2 rounded-lg transition-colors ${
-              tab === 'forgot'
-                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
-                : 'text-slate-600 dark:text-slate-400'
-            }`}
-          >
-            Recuperar
-          </button>
-        </div>
-
-        {/* Alerts */}
-        {errorMsg && (
-          <div className="mb-4 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-xs text-rose-700 dark:text-rose-300 flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 shrink-0" />
-            <span>{errorMsg}</span>
-          </div>
+        {error && (
+          <p role="alert" className="mt-4 text-sm text-danger bg-danger-soft rounded-md px-3 py-2">{error}</p>
+        )}
+        {notice && (
+          <p role="status" className="mt-4 text-sm text-ink-2 bg-subtle rounded-md px-3 py-2">{notice}</p>
         )}
 
-        {successMsg && (
-          <div className="mb-4 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 shrink-0" />
-            <span>{successMsg}</span>
-          </div>
-        )}
-
-        {/* LOGIN FORM */}
-        {tab === 'login' && (
-          <form onSubmit={handleLoginSubmit} className="space-y-3.5 text-xs">
-            <div>
-              <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                E-mail institucional ou Usuário (@):
-              </label>
-              <input
-                type="text"
-                required
-                value={loginIdentifier}
-                onChange={e => setLoginIdentifier(e.target.value)}
-                placeholder="vitor.dev ou usuario@aluno.ifsp.edu.br"
-                className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              />
-            </div>
-
-            <div>
-              <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Senha de Acesso:
-              </label>
-              <input
-                type="password"
-                required
-                value={loginPassword}
-                onChange={e => setLoginPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              />
-            </div>
-
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={() => setTab('forgot')}
-                className="text-[11px] text-emerald-600 dark:text-emerald-400 hover:underline"
-              >
-                Esqueceu a senha?
-              </button>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-2.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-colors shadow-xs flex items-center justify-center gap-2"
-            >
-              <LogIn className="w-4 h-4" />
-              <span>{loading ? 'Entrando...' : 'Entrar no Fórum'}</span>
-            </button>
-          </form>
-        )}
-
-        {/* REGISTER FORM */}
-        {tab === 'register' && (
-          <form onSubmit={handleRegisterSubmit} className="space-y-3 text-xs">
-            <div>
-              <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Nome Completo:
-              </label>
-              <input
-                type="text"
-                required
-                value={regName}
-                onChange={e => setRegName(e.target.value)}
-                placeholder="Ex: Ana Clara Silva"
-                className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Nome de Usuário (@):
-                </label>
+        {mode === 'login' && (
+          <form onSubmit={handleLogin} className="mt-5 space-y-4">
+            <Field label="Usuário ou e-mail">
+              {id => (
                 <input
+                  id={id}
                   type="text"
                   required
-                  value={regUsername}
-                  onChange={e => setRegUsername(e.target.value)}
-                  placeholder="anaclara.dev"
-                  className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  autoComplete="username"
+                  autoCapitalize="none"
+                  value={identifier}
+                  onChange={e => setIdentifier(e.target.value)}
+                  placeholder="vitor.dev"
+                  className={inputClass}
                 />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Semestre Atual:
-                </label>
+              )}
+            </Field>
+            <Field label="Senha">
+              {id => (
                 <input
-                  type="number"
-                  min={1}
-                  max={12}
-                  value={regSemester}
-                  onChange={e => setRegSemester(Number(e.target.value))}
-                  className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  id={id}
+                  type="password"
+                  required
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  className={inputClass}
                 />
-              </div>
+              )}
+            </Field>
+            <div className="flex items-center justify-between">
+              <button type="button" onClick={() => switchMode('forgot')} className="text-sm text-muted hover:text-ink">
+                Esqueci a senha
+              </button>
+              <Button type="submit" variant="primary" disabled={loading}>
+                {loading ? 'Entrando…' : 'Entrar'}
+              </Button>
             </div>
+          </form>
+        )}
 
-            <div>
-              <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                E-mail do IFSP:
-              </label>
-              <input
-                type="email"
-                required
-                value={regEmail}
-                onChange={e => setRegEmail(e.target.value)}
-                placeholder="ana.silva@aluno.ifsp.edu.br"
-                className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Campus:
-                </label>
+        {mode === 'register' && (
+          <form onSubmit={handleRegister} className="mt-5 space-y-4">
+            <Field label="Nome completo">
+              {id => (
+                <input id={id} type="text" required autoComplete="name" value={name} onChange={e => setName(e.target.value)} className={inputClass} />
+              )}
+            </Field>
+            <Field label="Nome de usuário" hint="Letras, números, ponto ou _">
+              {id => (
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted text-sm">@</span>
+                  <input
+                    id={id}
+                    type="text"
+                    required
+                    autoCapitalize="none"
+                    autoComplete="username"
+                    value={username}
+                    onChange={e => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9._]/g, ''))}
+                    className={cx(inputClass, 'pl-7')}
+                  />
+                </div>
+              )}
+            </Field>
+            <Field label="E-mail">
+              {id => (
+                <input
+                  id={id}
+                  type="email"
+                  required
+                  autoComplete="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="nome@aluno.ifsp.edu.br"
+                  className={inputClass}
+                />
+              )}
+            </Field>
+            <Field label="Campus">
+              {id => (
                 <select
-                  value={regCampus}
+                  id={id}
+                  value={campus}
                   onChange={e => {
-                    const newCampus = e.target.value;
-                    setRegCampus(newCampus);
-                    const cd = IFSP_CAMPUSES.find(c => c.name === newCampus);
-                    if (cd && cd.courses.length > 0) {
-                      setRegCourse(cd.courses[0]);
-                    }
+                    setCampus(e.target.value);
+                    setCourse(IFSP_CAMPUSES.find(c => c.name === e.target.value)?.courses[0] ?? '');
                   }}
-                  className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100"
+                  className={inputClass}
                 >
-                  {IFSP_CAMPUSES.map(c => (
-                    <option key={c.id} value={c.name}>{c.name}</option>
-                  ))}
+                  {IFSP_CAMPUSES.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                 </select>
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Curso:
-                </label>
-                <select
-                  value={regCourse}
-                  onChange={e => setRegCourse(e.target.value)}
-                  className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100"
-                >
-                  {currentCampusData.courses.map(course => (
-                    <option key={course} value={course}>{course}</option>
-                  ))}
-                </select>
-              </div>
+              )}
+            </Field>
+            <div className="grid grid-cols-[1fr_6rem] gap-3">
+              <Field label="Curso">
+                {id => (
+                  <select id={id} value={course} onChange={e => setCourse(e.target.value)} className={inputClass}>
+                    {courses.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                )}
+              </Field>
+              <Field label="Semestre">
+                {id => (
+                  <input
+                    id={id}
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    max={12}
+                    value={semester}
+                    onChange={e => setSemester(e.target.value)}
+                    className={inputClass}
+                  />
+                )}
+              </Field>
             </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Senha:
-                </label>
-                <input
-                  type="password"
-                  required
-                  value={regPassword}
-                  onChange={e => setRegPassword(e.target.value)}
-                  placeholder="Mínimo 6 dígitos"
-                  className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Confirmar Senha:
-                </label>
-                <input
-                  type="password"
-                  required
-                  value={regConfirmPassword}
-                  onChange={e => setRegConfirmPassword(e.target.value)}
-                  placeholder="Repita a senha"
-                  className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100"
-                />
-              </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Field label="Senha">
+                {id => (
+                  <input
+                    id={id}
+                    type="password"
+                    required
+                    minLength={6}
+                    autoComplete="new-password"
+                    value={regPassword}
+                    onChange={e => setRegPassword(e.target.value)}
+                    className={inputClass}
+                  />
+                )}
+              </Field>
+              <Field label="Repita a senha">
+                {id => (
+                  <input
+                    id={id}
+                    type="password"
+                    required
+                    autoComplete="new-password"
+                    value={confirm}
+                    onChange={e => setConfirm(e.target.value)}
+                    className={inputClass}
+                  />
+                )}
+              </Field>
             </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-2.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-colors shadow-xs flex items-center justify-center gap-2 mt-2"
-            >
-              <UserPlus className="w-4 h-4" />
-              <span>{loading ? 'Cadastrando...' : 'Finalizar Cadastro'}</span>
-            </button>
+            <Button type="submit" variant="primary" className="w-full" disabled={loading}>
+              {loading ? 'Criando…' : 'Criar conta'}
+            </Button>
           </form>
         )}
 
-        {/* FORGOT PASSWORD */}
-        {tab === 'forgot' && (
-          <form onSubmit={handleForgotSubmit} className="space-y-3.5 text-xs">
-            <div>
-              <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Digite seu e-mail do IFSP cadastrado:
-              </label>
-              <input
-                type="email"
-                required
-                value={forgotEmail}
-                onChange={e => setForgotEmail(e.target.value)}
-                placeholder="exemplo@aluno.ifsp.edu.br"
-                className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              />
+        {mode === 'forgot' && (
+          <form onSubmit={handleForgot} className="mt-5 space-y-4">
+            <Field label="E-mail">
+              {id => (
+                <input id={id} type="email" required autoComplete="email" className={inputClass} />
+              )}
+            </Field>
+            <div className="flex items-center justify-between">
+              <button type="button" onClick={() => switchMode('login')} className="text-sm text-muted hover:text-ink">
+                Voltar
+              </button>
+              <Button type="submit" variant="primary">Continuar</Button>
             </div>
-
-            <button
-              type="submit"
-              className="w-full py-2.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-colors shadow-xs flex items-center justify-center gap-2"
-            >
-              <KeyRound className="w-4 h-4" />
-              <span>Enviar Link de Recuperação</span>
-            </button>
           </form>
         )}
+      </Panel>
 
-      </div>
+      <p className="text-sm text-center text-muted mt-4">
+        {mode === 'register' ? (
+          <>Já tem conta? <button onClick={() => switchMode('login')} className="text-accent-ink font-medium hover:underline">Entrar</button></>
+        ) : (
+          <>Primeira vez aqui? <button onClick={() => switchMode('register')} className="text-accent-ink font-medium hover:underline">Criar conta</button></>
+        )}
+      </p>
 
-      {/* Quick Test Demo Logins */}
-      <div className="bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 text-xs space-y-2.5">
-        <div className="flex items-center gap-1.5 font-bold text-slate-700 dark:text-slate-300">
-          <ShieldCheck className="w-4 h-4 text-emerald-600" />
-          <span>Acesso Imediato com Contas de Teste:</span>
-        </div>
-        <p className="text-[11px] text-slate-500">
-          Clique em qualquer perfil abaixo para testar instantaneamente a navegação e interações:
-        </p>
-        <div className="grid grid-cols-1 gap-1.5">
-          {availableUsers.slice(0, 3).map(u => (
-            <button
-              key={u.id}
-              onClick={() => handleQuickDemoLogin(u.id)}
-              className="w-full p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60 hover:border-emerald-500 text-left flex items-center justify-between transition-colors"
-            >
-              <div className="min-w-0">
-                <span className="font-bold text-slate-900 dark:text-slate-100">{u.name}</span>{' '}
-                <span className="text-[10px] text-slate-400">(@{u.username} · {u.campus})</span>
-              </div>
-              <ArrowRight className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-            </button>
-          ))}
-        </div>
-      </div>
-
+      {demoUsers.length > 0 && (
+        <section className="mt-8">
+          <h2 className="text-xs font-mono uppercase tracking-wider text-muted mb-2 text-center">
+            Ou entre com uma conta de demonstração
+          </h2>
+          <ul className="border border-line rounded-lg divide-y divide-line bg-surface overflow-hidden">
+            {demoUsers.map(u => (
+              <li key={u.id}>
+                <button
+                  onClick={() => {
+                    switchUser(u.id);
+                    onSuccess();
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-subtle"
+                >
+                  <UserAvatar user={u} size="sm" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-medium text-ink truncate">{u.name}</span>
+                    <span className="block text-xs text-muted truncate">{ROLE_LABELS[u.role]} · {u.campus}</span>
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </div>
   );
 };

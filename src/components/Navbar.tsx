@@ -102,10 +102,12 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenC
           )}
 
           {currentUser && (
-            <Button variant="primary" size="sm" onClick={onOpenCreatePost} className="hidden lg:inline-flex ml-1">
-              <PenSquare className="w-4 h-4" />
-              Publicar
-            </Button>
+            <span className="hidden lg:block ml-1">
+              <Button variant="primary" size="sm" onClick={onOpenCreatePost}>
+                <PenSquare className="w-4 h-4" />
+                Publicar
+              </Button>
+            </span>
           )}
 
           {currentUser ? (

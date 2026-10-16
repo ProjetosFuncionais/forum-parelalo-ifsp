@@ -4,7 +4,7 @@ import { storage } from '../services/storage';
 import { Navigate } from '../lib/router';
 import { PostCard } from '../components/PostCard';
 import { UserAvatar } from '../components/UserAvatar';
-import { Button, EmptyState, Panel, Tabs } from '../components/ui';
+import { Button, EmptyState, Panel, Tabs, cx } from '../components/ui';
 import { IFSP_CAMPUSES } from '../data/campuses';
 
 interface FeedViewProps {
@@ -80,22 +80,18 @@ export const FeedView: React.FC<FeedViewProps> = ({ onNavigate, onOpenCreatePost
           </button>
         )}
 
-        <div className="flex items-center justify-between border-b border-line pr-3">
+        <div className="flex items-center justify-between border-b border-line sm:pr-3">
           <Tabs items={tabs} value={tab} onChange={setTab} className="border-b-0 flex-1" />
           {tab === 'recent' && (
-            <select
-              value={campusFilter}
-              onChange={e => setCampusFilter(e.target.value)}
-              aria-label="Filtrar por campus"
-              className="shrink-0 max-w-[9.5rem] sm:max-w-[12rem] h-8 pl-2 pr-1 rounded-md bg-transparent text-[13px] text-ink-2 hover:bg-subtle focus:outline-none cursor-pointer"
-            >
-              <option value="all">Todos os campi</option>
-              {IFSP_CAMPUSES.map(c => (
-                <option key={c.id} value={c.name}>{c.name.replace('IFSP ', '')}</option>
-              ))}
-            </select>
+            <CampusSelect value={campusFilter} onChange={setCampusFilter} className="hidden sm:block" />
           )}
         </div>
+        {tab === 'recent' && (
+          <div className="sm:hidden flex items-center gap-2 px-4 py-1.5 border-b border-line text-[13px] text-muted">
+            <span>Campus</span>
+            <CampusSelect value={campusFilter} onChange={setCampusFilter} className="flex-1 max-w-none" />
+          </div>
+        )}
 
         {posts.length === 0 ? (
           <EmptyState
@@ -124,3 +120,24 @@ export const FeedView: React.FC<FeedViewProps> = ({ onNavigate, onOpenCreatePost
     </div>
   );
 };
+
+const CampusSelect: React.FC<{ value: string; onChange: (v: string) => void; className?: string }> = ({
+  value,
+  onChange,
+  className
+}) => (
+  <select
+    value={value}
+    onChange={e => onChange(e.target.value)}
+    aria-label="Filtrar por campus"
+    className={cx(
+      'shrink-0 max-w-[12rem] h-8 pl-2 pr-1 rounded-md bg-transparent text-[13px] text-ink-2 hover:bg-subtle focus:outline-none cursor-pointer',
+      className
+    )}
+  >
+    <option value="all">Todos os campi</option>
+    {IFSP_CAMPUSES.map(c => (
+      <option key={c.id} value={c.name}>{c.name.replace('IFSP ', '')}</option>
+    ))}
+  </select>
+);
