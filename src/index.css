@@ -1,0 +1,156 @@
+@import "tailwindcss";
+
+/* O tema é controlado pela classe .dark no <html> (não pela preferência do sistema). */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* Tokens semânticos: os componentes usam bg-surface, text-ink, border-line etc.
+   e o modo escuro só troca os valores aqui. */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-subtle: var(--subtle);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-ink: var(--accent-ink);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-like: var(--like);
+}
+
+:root {
+  --bg: #f5f4ef;
+  --surface: #ffffff;
+  --subtle: #efede6;
+  --line: #e2dfd6;
+  --line-strong: #cfcbbf;
+  --ink: #1b1a17;
+  --ink-2: #44423c;
+  --muted: #76726a;
+  --accent: #1f6b44;
+  --accent-hover: #185636;
+  --accent-fg: #ffffff;
+  --accent-soft: #e3eee6;
+  --accent-ink: #17553a;
+  --danger: #b42318;
+  --danger-soft: #fbeae8;
+  --warn: #9a5b0b;
+  --warn-soft: #f8eedb;
+  --like: #c2410c;
+
+  --header-h: 3.5rem;
+  --tabbar-h: calc(3.75rem + env(safe-area-inset-bottom));
+  color-scheme: light;
+}
+
+:root.dark {
+  --bg: #121311;
+  --surface: #191a18;
+  --subtle: #222320;
+  --line: #2c2e2a;
+  --line-strong: #3b3e38;
+  --ink: #ecebe5;
+  --ink-2: #c6c4bc;
+  --muted: #8e8b83;
+  --accent: #58b880;
+  --accent-hover: #6cc791;
+  --accent-fg: #0b1610;
+  --accent-soft: #1b2d22;
+  --accent-ink: #8fd3ab;
+  --danger: #f07a6e;
+  --danger-soft: #3a1c19;
+  --warn: #e3a64a;
+  --warn-soft: #33270f;
+  --like: #fb923c;
+  color-scheme: dark;
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --tabbar-h: 0px;
+  }
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-bg text-ink font-sans antialiased;
+    font-feature-settings: "ss01", "ss02";
+  }
+
+  h1, h2, h3, h4 {
+    @apply text-ink;
+    letter-spacing: -0.012em;
+    text-wrap: balance;
+  }
+
+  button:not(:disabled), [role="button"] {
+    cursor: pointer;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: var(--accent-soft);
+    color: var(--accent-ink);
+  }
+}
+
+/* No iOS, campos com fonte menor que 16px dão zoom ao focar. */
+@media (max-width: 639px) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+}
+
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@keyframes sheet-up {
+  from { transform: translateY(16px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@utility animate-sheet {
+  animation: sheet-up 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@utility animate-fade {
+  animation: fade-in 150ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
