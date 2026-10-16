@@ -4,6 +4,8 @@ import { IFSP_CAMPUSES } from '../data/campuses';
 import { UserAvatar } from '../components/UserAvatar';
 import { Button, Field, Panel, cx, inputClass } from '../components/ui';
 import { ROLE_LABELS } from '../lib/format';
+import * as m from 'motion/react-m';
+import { ease, listStagger, revealItem } from '../lib/motion';
 
 interface AuthViewProps {
   onSuccess: () => void;
@@ -70,9 +72,20 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
   const demoUsers = availableUsers.filter(u => !u.isSuspended).slice(0, 5);
 
   return (
-    <div className="max-w-[26rem] mx-auto w-full px-4 sm:px-0 py-4 sm:py-8">
-      <Panel className="!border sm:!rounded-lg rounded-lg px-5 py-6">
-        <h1 className="text-xl font-semibold">
+    <m.div
+      className="max-w-[26rem] mx-auto w-full px-4 sm:px-0 py-4 sm:py-8"
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.45, ease: ease.out }}
+    >
+      <Panel className="!border !rounded-2xl px-5 sm:px-7 py-7 overflow-hidden">
+        <m.div
+          key={mode}
+          initial={{ opacity: 0, x: 16 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.3, ease: ease.out }}
+        >
+        <h1 className="text-[1.75rem] font-bold leading-tight">
           {mode === 'login' && 'Entrar'}
           {mode === 'register' && 'Criar conta'}
           {mode === 'forgot' && 'Recuperar acesso'}
@@ -257,6 +270,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
             </div>
           </form>
         )}
+              </m.div>
       </Panel>
 
       <p className="text-sm text-center text-muted mt-4">
@@ -272,9 +286,14 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
           <h2 className="text-xs font-mono uppercase tracking-wider text-muted mb-2 text-center">
             Ou entre com uma conta de demonstração
           </h2>
-          <ul className="border border-line rounded-lg divide-y divide-line bg-surface overflow-hidden">
+          <m.ul
+            className="border border-line rounded-2xl divide-y divide-line bg-surface overflow-hidden"
+            variants={listStagger}
+            initial="hidden"
+            animate="show"
+          >
             {demoUsers.map(u => (
-              <li key={u.id}>
+              <m.li key={u.id} variants={revealItem}>
                 <button
                   onClick={() => {
                     switchUser(u.id);
@@ -288,11 +307,11 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
                     <span className="block text-xs text-muted truncate">{ROLE_LABELS[u.role]} · {u.campus}</span>
                   </span>
                 </button>
-              </li>
+              </m.li>
             ))}
-          </ul>
+          </m.ul>
         </section>
       )}
-    </div>
+    </m.div>
   );
 };

@@ -7,6 +7,9 @@ import { Message } from '../types';
 import { RoleTag, UserAvatar } from '../components/UserAvatar';
 import { Button, EmptyState, IconButton, Modal, Panel, cx, inputClass } from '../components/ui';
 import { ArrowLeft, Check, CheckCheck, PenSquare, Search, SendHorizontal } from 'lucide-react';
+import { AnimatePresence } from 'motion/react';
+import * as m from 'motion/react-m';
+import { spring } from '../lib/motion';
 
 interface ChatViewProps {
   onNavigate: Navigate;
@@ -167,12 +170,12 @@ export const ChatView: React.FC<ChatViewProps> = ({ onNavigate, initialUserId })
               const unread = conv.unreadCount?.[currentUser.id] ?? 0;
               const selected = conv.id === activeId;
               return (
-                <li key={conv.id}>
+                <m.li key={conv.id} layout transition={spring.soft}>
                   <button
                     onClick={() => openConversation(conv.id)}
                     aria-current={selected ? 'true' : undefined}
                     className={cx(
-                      'w-full flex items-center gap-3 px-4 py-3 text-left transition-colors',
+                      'relative w-full flex items-center gap-3 px-4 py-3 text-left transition-colors active:!scale-100',
                       selected ? 'md:bg-subtle' : 'hover:bg-subtle'
                     )}
                   >
@@ -199,7 +202,7 @@ export const ChatView: React.FC<ChatViewProps> = ({ onNavigate, initialUserId })
                       </span>
                     </span>
                   </button>
-                </li>
+                </m.li>
               );
             })
           )}
@@ -238,24 +241,32 @@ export const ChatView: React.FC<ChatViewProps> = ({ onNavigate, initialUserId })
                   Envie a primeira mensagem para {partner.name.split(' ')[0]}.
                 </p>
               ) : (
-                <ol className="space-y-1">
+                <ol key={activeId} className="space-y-1">
+                  <AnimatePresence initial={false}>
                   {messages.map((msg, i) => {
                     const mine = msg.senderId === currentUser.id;
                     const prev = messages[i - 1];
                     const newDay = !prev || new Date(prev.createdAt).toDateString() !== new Date(msg.createdAt).toDateString();
                     const grouped = prev && !newDay && prev.senderId === msg.senderId;
                     return (
-                      <li key={msg.id}>
+                      <m.li
+                        key={msg.id}
+                        layout="position"
+                        initial={{ opacity: 0, y: 16, scale: 0.92 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        transition={spring.soft}
+                        style={{ transformOrigin: mine ? 'bottom right' : 'bottom left' }}
+                      >
                         {newDay && (
                           <p className="text-center text-xs text-muted my-4">{dayLabel(msg.createdAt)}</p>
                         )}
                         <div className={cx('flex', mine ? 'justify-end' : 'justify-start', !grouped && !newDay && 'mt-3')}>
                           <div
                             className={cx(
-                              'max-w-[80%] md:max-w-[65%] px-3.5 py-2 rounded-lg text-[15px] leading-snug',
+                              'max-w-[80%] md:max-w-[65%] px-3.5 py-2 rounded-[1.15rem] text-[15px] leading-snug',
                               mine
-                                ? 'bg-accent text-accent-fg rounded-br-sm'
-                                : 'bg-surface text-ink border border-line rounded-bl-sm'
+                                ? 'bg-accent text-accent-fg rounded-br-md shadow-[0_2px_8px_-3px_rgb(31_107_68/0.45)]'
+                                : 'bg-surface text-ink border border-line rounded-bl-md'
                             )}
                           >
                             <p className="whitespace-pre-wrap break-words">{msg.content}</p>
@@ -272,9 +283,10 @@ export const ChatView: React.FC<ChatViewProps> = ({ onNavigate, initialUserId })
                             </p>
                           </div>
                         </div>
-                      </li>
+                      </m.li>
                     );
                   })}
+                  </AnimatePresence>
                 </ol>
               )}
               <div ref={endRef} />
@@ -302,16 +314,20 @@ export const ChatView: React.FC<ChatViewProps> = ({ onNavigate, initialUserId })
                   maxLength={2000}
                   placeholder="Escreva uma mensagem"
                   aria-label="Mensagem"
-                  className={cx(inputClass, 'h-auto min-h-10 max-h-32 py-2 resize-none field-sizing-content')}
+                  className={cx(inputClass, 'h-auto min-h-10 max-h-32 py-2 px-4 rounded-[1.25rem] resize-none field-sizing-content')}
                 />
-                <IconButton
+                <m.button
                   type="submit"
-                  label="Enviar"
+                  aria-label="Enviar"
+                  title="Enviar"
                   disabled={!text.trim()}
-                  className="w-10 h-10 shrink-0 bg-accent text-accent-fg hover:bg-accent-hover hover:text-accent-fg disabled:opacity-40"
+                  animate={{ scale: text.trim() ? 1 : 0.85, opacity: text.trim() ? 1 : 0.45 }}
+                  whileTap={{ scale: 0.85, rotate: -12 }}
+                  transition={spring.bouncy}
+                  className="w-10 h-10 shrink-0 rounded-full inline-flex items-center justify-center bg-accent text-accent-fg hover:bg-accent-hover"
                 >
                   <SendHorizontal className="w-[18px] h-[18px]" />
-                </IconButton>
+                </m.button>
               </form>
             )}
           </>

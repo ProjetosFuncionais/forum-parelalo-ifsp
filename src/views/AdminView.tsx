@@ -208,7 +208,7 @@ export const AdminView: React.FC<{ onNavigate: Navigate }> = ({ onNavigate }) =>
             <ul className="divide-y divide-line">
               {filteredUsers.map(u => (
                 <li key={u.id} className="flex items-center gap-3 px-4 sm:px-5 py-3">
-                  <button onClick={() => onNavigate('profile', u.id)} className="shrink-0 rounded-full">
+                  <button onClick={() => onNavigate('profile', u.id)} className="shrink-0 rounded-full" aria-label={`Perfil de ${u.name}`}>
                     <UserAvatar user={u} size="md" />
                   </button>
                   <div className="min-w-0 flex-1">

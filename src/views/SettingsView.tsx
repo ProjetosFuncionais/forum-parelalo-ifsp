@@ -5,6 +5,8 @@ import { Navigate } from '../lib/router';
 import { UserAvatar } from '../components/UserAvatar';
 import { Button, PageHeader, Panel, cx, toast } from '../components/ui';
 import { Monitor, Moon, Sun } from 'lucide-react';
+import * as m from 'motion/react-m';
+import { spring } from '../lib/motion';
 
 const THEMES: { id: ThemePreference; label: string; icon: typeof Sun }[] = [
   { id: 'light', label: 'Claro', icon: Sun },
@@ -48,12 +50,19 @@ export const SettingsView: React.FC<{ onNavigate: Navigate }> = ({ onNavigate })
                 aria-checked={active}
                 onClick={() => setThemePreference(t.id)}
                 className={cx(
-                  'flex flex-col items-center gap-2 py-3 rounded-md border text-sm transition-colors',
-                  active ? 'border-accent bg-accent-soft text-accent-ink font-medium' : 'border-line text-ink-2 hover:border-line-strong'
+                  'relative flex flex-col items-center gap-2 py-4 rounded-xl border text-sm',
+                  active ? 'border-transparent text-accent-ink font-medium' : 'border-line text-ink-2 hover:border-line-strong'
                 )}
               >
-                <Icon className="w-5 h-5" />
-                {t.label}
+                {active && (
+                  <m.span
+                    layoutId="theme-choice"
+                    transition={spring.snappy}
+                    className="absolute inset-0 rounded-xl bg-accent-soft ring-2 ring-accent"
+                  />
+                )}
+                <Icon className="relative w-5 h-5" />
+                <span className="relative">{t.label}</span>
               </button>
             );
           })}

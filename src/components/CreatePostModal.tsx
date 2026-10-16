@@ -176,7 +176,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
               key={tag}
               type="button"
               onClick={() => addTag(tag)}
-              className="h-7 px-2.5 rounded-md border border-line text-[13px] text-muted hover:text-ink hover:border-line-strong"
+              className="h-8 px-3 rounded-full border border-line text-[13px] text-muted hover:text-ink hover:border-line-strong hover:bg-subtle"
             >
               #{tag}
             </button>

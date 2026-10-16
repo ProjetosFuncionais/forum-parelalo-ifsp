@@ -43,13 +43,14 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({ user, size = 'md', class
     .map(part => part[0].toUpperCase())
     .join('');
 
-  const avatarUrl = user?.avatarUrl;
+  // Os avatares de desenho gerados (DiceBear) davam cara de "demo"; usamos iniciais no lugar.
+  const avatarUrl = user?.avatarUrl && !user.avatarUrl.includes('dicebear.com') ? user.avatarUrl : undefined;
   const showImage = !!avatarUrl && failedUrl !== avatarUrl;
 
   return (
     <span
       className={cx(
-        'relative inline-flex shrink-0 items-center justify-center rounded-full overflow-hidden font-semibold select-none',
+        'relative inline-flex shrink-0 items-center justify-center rounded-full overflow-hidden font-display font-bold tracking-[-0.02em] select-none ring-1 ring-inset ring-black/5 dark:ring-white/5',
         sizeClasses[size],
         !showImage && tintFor(user?.id || name),
         showImage && 'bg-subtle',
@@ -84,7 +85,7 @@ export const RoleTag: React.FC<{ role?: string; className?: string }> = ({ role,
   return (
     <span
       className={cx(
-        'inline-flex items-center h-[18px] px-1.5 rounded-sm border border-line-strong text-[10.5px] font-medium uppercase tracking-wide text-muted',
+        'inline-flex items-center h-[18px] px-2 rounded-full bg-accent-soft text-[10.5px] font-semibold uppercase tracking-wide text-accent-ink',
         className
       )}
     >

@@ -7,6 +7,8 @@ import { timeAgo } from '../lib/format';
 import { UserAvatar } from '../components/UserAvatar';
 import { Button, EmptyState, PageHeader, Panel, Tabs, cx } from '../components/ui';
 import { Heart, MessageCircle, UserPlus, Mail, CalendarDays, Bell } from 'lucide-react';
+import * as m from 'motion/react-m';
+import { listStagger, revealItem } from '../lib/motion';
 
 const ICONS = {
   like: { icon: Heart, className: 'text-like' },
@@ -81,16 +83,16 @@ export const NotificationsView: React.FC<{ onNavigate: Navigate }> = ({ onNaviga
             text={filter === 'unread' ? undefined : 'Quando alguém curtir, comentar ou seguir você, aparece aqui.'}
           />
         ) : (
-          <ul className="divide-y divide-line">
+          <m.ul key={filter} className="divide-y divide-line" variants={listStagger} initial="hidden" animate="show">
             {list.map(n => {
               const actor = storage.getUserById(n.actorId);
               const { icon: Icon, className } = ICONS[n.type] ?? ICONS.system;
               return (
-                <li key={n.id}>
+                <m.li key={n.id} variants={revealItem}>
                   <button
                     onClick={() => open(n)}
                     className={cx(
-                      'w-full flex items-start gap-3 px-4 sm:px-5 py-3.5 text-left transition-colors hover:bg-subtle',
+                      'w-full flex items-start gap-3 px-4 sm:px-6 py-4 text-left transition-colors hover:bg-subtle active:!scale-100',
                       !n.read && 'bg-accent-soft/40'
                     )}
                   >
@@ -108,10 +110,10 @@ export const NotificationsView: React.FC<{ onNavigate: Navigate }> = ({ onNaviga
                     </span>
                     {!n.read && <span className="w-2 h-2 rounded-full bg-accent shrink-0 mt-2" aria-label="Não lida" />}
                   </button>
-                </li>
+                </m.li>
               );
             })}
-          </ul>
+          </m.ul>
         )}
       </Panel>
     </div>

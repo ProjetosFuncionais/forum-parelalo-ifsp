@@ -2,7 +2,10 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Navigate } from '../lib/router';
 import { UserAvatar } from './UserAvatar';
-import { Button, IconButton, Menu, MenuItem, cx } from './ui';
+import { Button, IconButton, Menu, MenuItem, cx, useMediaQuery } from './ui';
+import { AnimatePresence, useMotionValueEvent, useScroll } from 'motion/react';
+import * as m from 'motion/react-m';
+import { spring } from '../lib/motion';
 import {
   Sun, Moon, Bell, LogOut, Shield, Settings, User as UserIcon,
   Search, PenSquare, Repeat, Check
@@ -22,7 +25,7 @@ export const Logo: React.FC<{ className?: string }> = ({ className }) => (
       <rect x="18.5" y="8" width="3.5" height="16" className="fill-accent-fg" />
     </svg>
     <span className="leading-none">
-      <span className="block text-[15px] font-semibold tracking-tight text-ink">Fórum Paralelo</span>
+      <span className="block font-display text-[17px] font-bold tracking-[-0.03em] text-ink">Fórum Paralelo</span>
       <span className="block text-[10.5px] font-mono uppercase tracking-[0.12em] text-muted mt-0.5">IFSP</span>
     </span>
   </span>
@@ -35,6 +38,18 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenC
   } = useAuth();
   const [query, setQuery] = useState('');
   const [showAccounts, setShowAccounts] = useState(false);
+  const [hidden, setHidden] = useState(false);
+  const isDesktop = useMediaQuery('(min-width: 1024px)');
+  const { scrollY } = useScroll();
+
+  // No celular, o cabeçalho sai de cena ao rolar para baixo e volta ao rolar para cima.
+  useMotionValueEvent(scrollY, 'change', y => {
+    const prev = scrollY.getPrevious() ?? 0;
+    const shouldHide = !isDesktop && currentView !== 'chat' && y > 120 && y > prev + 4;
+    const shouldShow = y < prev - 4 || y < 120;
+    if (shouldHide && !hidden) setHidden(true);
+    else if (shouldShow && hidden) setHidden(false);
+  });
 
   const isMod = currentUser?.role === 'admin' || currentUser?.role === 'moderator';
 
@@ -44,7 +59,11 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenC
   };
 
   return (
-    <header className="sticky top-0 z-30 h-[var(--header-h)] bg-bg/90 backdrop-blur-md border-b border-line pt-[env(safe-area-inset-top)] box-content">
+    <m.header
+      animate={{ y: hidden ? '-100%' : 0 }}
+      transition={{ type: 'spring', stiffness: 420, damping: 40 }}
+      className="sticky top-0 z-30 h-[var(--header-h)] bg-bg/80 backdrop-blur-xl backdrop-saturate-150 border-b border-line pt-[env(safe-area-inset-top)] box-content"
+    >
       <div className="h-full max-w-[1280px] mx-auto px-3 sm:px-5 flex items-center gap-3">
         <a
           href="#/feed"
@@ -68,7 +87,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenC
               value={query}
               onChange={e => setQuery(e.target.value)}
               placeholder="Buscar pessoas, posts, #tags"
-              className="w-full h-9 pl-9 pr-3 rounded-md bg-subtle border border-transparent text-sm text-ink placeholder:text-muted focus:outline-none focus:bg-surface focus:border-line-strong"
+              className="w-full h-10 pl-9 pr-3 rounded-full bg-subtle border border-transparent text-sm text-ink placeholder:text-muted focus:outline-none focus:bg-surface focus:border-line-strong focus:ring-4 focus:ring-accent/10 transition-all"
             />
           </label>
         </form>
@@ -83,7 +102,18 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenC
           </IconButton>
 
           <IconButton label={theme === 'dark' ? 'Usar tema claro' : 'Usar tema escuro'} onClick={toggleTheme}>
-            {theme === 'dark' ? <Sun className="w-[18px] h-[18px]" /> : <Moon className="w-[18px] h-[18px]" />}
+            <AnimatePresence mode="wait" initial={false}>
+              <m.span
+                key={theme}
+                initial={{ rotate: -90, scale: 0.5, opacity: 0 }}
+                animate={{ rotate: 0, scale: 1, opacity: 1 }}
+                exit={{ rotate: 90, scale: 0.5, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="flex"
+              >
+                {theme === 'dark' ? <Sun className="w-[18px] h-[18px]" /> : <Moon className="w-[18px] h-[18px]" />}
+              </m.span>
+            </AnimatePresence>
           </IconButton>
 
           {currentUser && (
@@ -93,11 +123,20 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenC
               className={cx('relative', currentView === 'notifications' && 'text-ink bg-subtle')}
             >
               <Bell className="w-[18px] h-[18px]" />
-              {unreadNotificationsCount > 0 && (
-                <span className="absolute top-1 right-1 min-w-4 h-4 px-1 rounded-full bg-accent text-accent-fg text-[10px] font-semibold leading-4 text-center">
-                  {unreadNotificationsCount > 9 ? '9+' : unreadNotificationsCount}
-                </span>
-              )}
+              <AnimatePresence>
+                {unreadNotificationsCount > 0 && (
+                  <m.span
+                    key={unreadNotificationsCount}
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    exit={{ scale: 0 }}
+                    transition={spring.bouncy}
+                    className="absolute top-1 right-1 min-w-4 h-4 px-1 rounded-full bg-accent text-accent-fg text-[10px] font-semibold leading-4 text-center ring-2 ring-bg"
+                  >
+                    {unreadNotificationsCount > 9 ? '9+' : unreadNotificationsCount}
+                  </m.span>
+                )}
+              </AnimatePresence>
             </IconButton>
           )}
 
@@ -186,6 +225,6 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenC
           )}
         </div>
       </div>
-    </header>
+    </m.header>
   );
 };

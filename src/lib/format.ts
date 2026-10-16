@@ -41,7 +41,7 @@ export function fullDateTime(iso: string): string {
  * Datas de evento são guardadas como "AAAA-MM-DD". `new Date("2026-10-24")`
  * interpreta como UTC e, no fuso de Brasília, vira o dia anterior.
  */
-export function parseLocalDate(ymd: string): Date {
+function parseLocalDate(ymd: string): Date {
   const [y, m, d] = ymd.split('-').map(Number);
   return new Date(y, (m || 1) - 1, d || 1);
 }

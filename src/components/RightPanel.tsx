@@ -4,6 +4,9 @@ import { storage } from '../services/storage';
 import { Navigate } from '../lib/router';
 import { eventDateParts, eventStatus } from '../lib/format';
 import { RoleTag, UserAvatar } from './UserAvatar';
+import { AnimatePresence } from 'motion/react';
+import * as m from 'motion/react-m';
+import { campusColor, campusShort } from '../lib/campus';
 
 interface RightPanelProps {
   onNavigate: Navigate;
@@ -57,15 +60,15 @@ export const RightPanel: React.FC<RightPanelProps> = ({ onNavigate }) => {
                       onClick={() => onNavigate('events', event.id)}
                       className="w-full flex gap-3 py-3 text-left group"
                     >
-                      <span className="w-9 shrink-0 text-center leading-none pt-0.5">
-                        <span className="block text-lg font-semibold text-ink">{d.day}</span>
-                        <span className="block text-[10.5px] font-mono uppercase text-muted mt-0.5">{d.month}</span>
+                      <span className="w-10 shrink-0 text-center leading-none pt-1 pb-1.5 rounded-xl bg-surface border border-line transition-transform group-hover:-rotate-3 group-hover:scale-105">
+                        <span className="block font-display text-lg font-bold text-ink">{d.day}</span>
+                        <span className="block text-[10px] font-semibold uppercase mt-0.5" style={{ color: campusColor(event.campus) }}>{d.month}</span>
                       </span>
                       <span className="min-w-0">
                         <span className="block text-sm font-medium text-ink leading-snug group-hover:underline line-clamp-2">
                           {event.title}
                         </span>
-                        <span className="block text-xs text-muted mt-0.5 truncate">{event.campus}</span>
+                        <span className="block text-xs text-muted mt-0.5 truncate">{campusShort(event.campus)}</span>
                       </span>
                     </button>
                   </li>
@@ -79,9 +82,17 @@ export const RightPanel: React.FC<RightPanelProps> = ({ onNavigate }) => {
           <section>
             <h2 className="text-sm font-semibold mb-3">Quem seguir</h2>
             <ul className="space-y-3">
+              <AnimatePresence initial={false}>
               {suggestions.map(user => (
-                <li key={user.id} className="flex items-center gap-2.5">
-                  <button onClick={() => onNavigate('profile', user.id)} className="shrink-0 rounded-full">
+                <m.li
+                  key={user.id}
+                  layout
+                  initial={{ opacity: 0, x: 12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -12, transition: { duration: 0.15 } }}
+                  className="flex items-center gap-2.5"
+                >
+                  <button onClick={() => onNavigate('profile', user.id)} className="shrink-0 rounded-full" aria-label={`Perfil de ${user.name}`}>
                     <UserAvatar user={user} size="sm" />
                   </button>
                   <button onClick={() => onNavigate('profile', user.id)} className="min-w-0 flex-1 text-left">
@@ -93,12 +104,13 @@ export const RightPanel: React.FC<RightPanelProps> = ({ onNavigate }) => {
                   </button>
                   <button
                     onClick={() => handleFollow(user.id)}
-                    className="shrink-0 h-7 px-2.5 rounded-md border border-line-strong text-[13px] font-medium text-ink hover:bg-subtle"
+                    className="shrink-0 h-7 px-3 rounded-full bg-ink text-bg text-[13px] font-medium hover:opacity-85"
                   >
                     Seguir
                   </button>
-                </li>
+                </m.li>
               ))}
+              </AnimatePresence>
             </ul>
           </section>
         )}

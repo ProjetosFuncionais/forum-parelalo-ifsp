@@ -9,6 +9,10 @@ import { UserAvatar } from './UserAvatar';
 import { ReportModal } from './ReportModal';
 import { Button, IconButton, Menu, MenuItem, cx, toast } from './ui';
 import { Clock, MapPin, Video, MoreHorizontal, Link2, Trash2, Flag, Check, Star, ArrowUpRight } from 'lucide-react';
+import { AnimatePresence } from 'motion/react';
+import * as m from 'motion/react-m';
+import { ease, spring } from '../lib/motion';
+import { campusColor, campusShort } from '../lib/campus';
 
 interface EventCardProps {
   event: AcademicEvent;
@@ -60,20 +64,38 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onNavigate, highlig
   };
 
   return (
-    <article
+    <m.article
       id={`event-${event.id}`}
+      layout="position"
+      initial={{ opacity: 0, y: 16 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: '0px 0px -40px 0px' }}
+      exit={{ opacity: 0, scale: 0.97, transition: { duration: 0.18 } }}
+      transition={{ duration: 0.45, ease: ease.out }}
       className={cx(
-        'flex gap-4 px-4 sm:px-5 py-4',
-        highlighted && 'bg-accent-soft/60',
+        'relative flex gap-4 px-4 sm:px-6 py-5',
         isPast && 'opacity-70',
         className
       )}
     >
+      {highlighted && (
+        <m.span
+          className="absolute inset-0 bg-accent-soft pointer-events-none"
+          initial={{ opacity: 1 }}
+          animate={{ opacity: [1, 0.5, 1, 0.35] }}
+          transition={{ duration: 2.2, ease: 'easeInOut' }}
+        />
+      )}
       {/* Data */}
-      <div className="w-14 shrink-0 text-center rounded-md border border-line bg-bg py-1.5 h-fit">
-        <p className="text-[11px] font-mono uppercase tracking-wider text-muted">{date.month}</p>
-        <p className="text-2xl font-semibold leading-none my-0.5 text-ink">{date.day}</p>
-        <p className="text-[11px] text-muted">{date.weekday}</p>
+      <div className="relative w-[3.75rem] shrink-0 text-center rounded-2xl overflow-hidden border border-line bg-surface h-fit shadow-[0_1px_2px_rgb(0_0_0/0.04)]">
+        <p
+          className="text-[10.5px] font-semibold uppercase tracking-wider text-white py-1"
+          style={{ background: campusColor(event.campus) }}
+        >
+          {date.month}
+        </p>
+        <p className="font-display text-[1.65rem] font-bold leading-none mt-1.5 text-ink">{date.day}</p>
+        <p className="text-[11px] text-muted pb-1.5 pt-0.5">{date.weekday}</p>
       </div>
 
       <div className="min-w-0 flex-1">
@@ -82,11 +104,11 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onNavigate, highlig
             <p className="text-xs text-muted">
               <span className="text-accent-ink font-medium">{category}</span>
               <span aria-hidden="true"> · </span>
-              {event.campus}
+              {campusShort(event.campus)}
               {status === 'ongoing' && <span className="ml-1.5 text-warn font-medium">· Hoje</span>}
               {isPast && <span className="ml-1.5">· Encerrado</span>}
             </p>
-            <h3 className="mt-1 text-base font-semibold leading-snug">{event.title}</h3>
+            <h3 className="mt-1 font-display text-[1.15rem] font-bold leading-snug tracking-[-0.02em]">{event.title}</h3>
           </div>
 
           <Menu
@@ -181,18 +203,38 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onNavigate, highlig
               variant={userStatus === 'attending' ? 'primary' : 'secondary'}
               onClick={() => handleRSVP('attending')}
               aria-pressed={userStatus === 'attending'}
+              className="rounded-full"
             >
-              <Check className="w-4 h-4" />
-              {userStatus === 'attending' ? 'Vou' : 'Vou participar'}
+              <AnimatePresence mode="wait" initial={false}>
+                <m.span
+                  key={userStatus === 'attending' ? 'on' : 'off'}
+                  initial={{ scale: 0, rotate: -90 }}
+                  animate={{ scale: 1, rotate: 0 }}
+                  exit={{ scale: 0 }}
+                  transition={spring.bouncy}
+                  className="flex"
+                >
+                  <Check className="w-4 h-4" strokeWidth={userStatus === 'attending' ? 3 : 2} />
+                </m.span>
+              </AnimatePresence>
+              {userStatus === 'attending' ? 'Presença confirmada' : 'Vou participar'}
             </Button>
             <Button
               size="sm"
               variant="ghost"
               onClick={() => handleRSVP('interested')}
               aria-pressed={userStatus === 'interested'}
-              className={cx(userStatus === 'interested' && 'text-warn bg-warn-soft hover:bg-warn-soft hover:text-warn')}
+              className={cx('rounded-full', userStatus === 'interested' && 'text-warn bg-warn-soft hover:bg-warn-soft hover:text-warn')}
             >
-              <Star className={cx('w-4 h-4', userStatus === 'interested' && 'fill-current')} />
+              <m.span
+                key={String(userStatus === 'interested')}
+                initial={userStatus === 'interested' ? { scale: 0.3, rotate: -72 } : false}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={spring.bouncy}
+                className="flex"
+              >
+                <Star className={cx('w-4 h-4', userStatus === 'interested' && 'fill-current')} />
+              </m.span>
               Interesse
             </Button>
           </div>
@@ -206,6 +248,6 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onNavigate, highlig
         isOpen={showReport}
         onClose={() => setShowReport(false)}
       />
-    </article>
+    </m.article>
   );
 };

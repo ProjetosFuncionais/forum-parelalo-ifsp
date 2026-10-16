@@ -15,6 +15,9 @@ import { IFSP_CAMPUSES } from '../data/campuses';
 import { ROLE_LABELS } from '../lib/format';
 import { MoreHorizontal, Flag, Ban, Link2, MessageCircle } from 'lucide-react';
 import { absoluteUrl } from '../lib/router';
+import * as m from 'motion/react-m';
+import { ease, spring } from '../lib/motion';
+import { campusColor } from '../lib/campus';
 
 type ProfileTab = 'posts' | 'events' | 'saved' | 'followers' | 'following';
 
@@ -108,15 +111,40 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ userId, initialTab = '
   return (
     <div className="max-w-2xl mx-auto w-full">
       <Panel className="overflow-hidden">
-        <div className="h-24 sm:h-32 bg-subtle border-b border-line">
-          {user.bannerUrl && (
-            <img src={user.bannerUrl} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
+        <div
+          className="relative h-28 sm:h-40 overflow-hidden border-b border-line"
+          style={{ background: `linear-gradient(135deg, ${campusColor(user.campus)} 0%, color-mix(in oklab, ${campusColor(user.campus)} 55%, #111) 100%)` }}
+        >
+          {user.bannerUrl ? (
+            <m.img
+              src={user.bannerUrl}
+              alt=""
+              referrerPolicy="no-referrer"
+              initial={{ scale: 1.08, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 0.9, ease: ease.out }}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="absolute right-8 -top-8 flex gap-6 opacity-25" aria-hidden="true">
+              {[0, 1].map(i => (
+                <m.span
+                  key={i}
+                  className="block w-9 h-56 rounded-full bg-white rotate-[24deg]"
+                  initial={{ y: -60, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ delay: 0.1 + i * 0.12, duration: 0.8, ease: ease.out }}
+                />
+              ))}
+            </div>
           )}
         </div>
 
         <div className="px-4 sm:px-6 pb-5">
           <div className="flex items-end justify-between gap-3 -mt-10 sm:-mt-12">
-            <UserAvatar user={user} size="xl" className="ring-4 ring-surface" />
+            <m.div initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ ...spring.bouncy, delay: 0.08 }}>
+              <UserAvatar user={user} size="xl" className="ring-4 ring-surface shadow-lg" />
+            </m.div>
 
             <div className="flex items-center gap-2 pb-1">
               {isOwn ? (
@@ -171,7 +199,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ userId, initialTab = '
 
           <div className="mt-3">
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-xl font-semibold">{user.name}</h1>
+              <h1 className="text-[1.6rem] font-bold leading-tight">{user.name}</h1>
               <RoleTag role={user.role} />
               {user.isSuspended && (
                 <span className="text-xs text-danger font-medium">Conta suspensa</span>
@@ -214,7 +242,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ userId, initialTab = '
           <p className="mt-4 flex gap-4 text-sm">
             <button onClick={() => setTab('followers')} className="hover:underline">
               <span className="font-semibold text-ink">{followers.length}</span>{' '}
-              <span className="text-muted">seguidores</span>
+              <span className="text-muted">{followers.length === 1 ? 'seguidor' : 'seguidores'}</span>
             </button>
             <button onClick={() => setTab('following')} className="hover:underline">
               <span className="font-semibold text-ink">{following.length}</span>{' '}

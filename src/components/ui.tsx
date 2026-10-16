@@ -1,9 +1,23 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { AnimatePresence, useDragControls, type PanInfo } from 'motion/react';
+import * as m from 'motion/react-m';
 import { X } from 'lucide-react';
+import { ease, spring } from '../lib/motion';
 
 export function cx(...classes: Array<string | false | null | undefined>): string {
   return classes.filter(Boolean).join(' ');
+}
+
+export function useMediaQuery(query: string) {
+  const [matches, setMatches] = useState(() => window.matchMedia(query).matches);
+  useEffect(() => {
+    const mq = window.matchMedia(query);
+    const onChange = () => setMatches(mq.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, [query]);
+  return matches;
 }
 
 /* ---------- Botões ---------- */
@@ -12,8 +26,8 @@ type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'danger-ghos
 type ButtonSize = 'sm' | 'md';
 
 const buttonVariants: Record<ButtonVariant, string> = {
-  primary: 'bg-accent text-accent-fg hover:bg-accent-hover',
-  secondary: 'bg-surface text-ink border border-line-strong hover:bg-subtle',
+  primary: 'bg-accent text-accent-fg hover:bg-accent-hover shadow-[inset_0_1px_0_rgb(255_255_255/0.12),0_1px_2px_rgb(0_0_0/0.12)]',
+  secondary: 'bg-surface text-ink border border-line-strong hover:bg-subtle hover:border-ink/25',
   ghost: 'text-ink-2 hover:bg-subtle hover:text-ink',
   danger: 'bg-danger text-white hover:opacity-90 dark:text-bg',
   'danger-ghost': 'text-danger hover:bg-danger-soft'
@@ -35,7 +49,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       ref={ref}
       type={type}
       className={cx(
-        'inline-flex items-center justify-center rounded-md font-medium whitespace-nowrap transition-colors disabled:opacity-50 disabled:pointer-events-none',
+        'inline-flex items-center justify-center rounded-lg font-medium whitespace-nowrap disabled:opacity-50 disabled:pointer-events-none',
         buttonVariants[variant],
         buttonSizes[size],
         className
@@ -57,17 +71,45 @@ export const IconButton: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement> 
     aria-label={label}
     title={label}
     className={cx(
-      'inline-flex items-center justify-center w-9 h-9 rounded-md text-muted hover:text-ink hover:bg-subtle transition-colors',
+      'inline-flex items-center justify-center w-9 h-9 rounded-lg text-muted hover:text-ink hover:bg-subtle',
       className
     )}
     {...props}
   />
 );
 
+/* ---------- Número animado ---------- */
+
+/** Contador cujos dígitos rolam para cima/baixo quando o valor muda. */
+export const AnimatedNumber: React.FC<{ value: number; className?: string }> = ({ value, className }) => {
+  const prev = useRef(value);
+  const direction = value >= prev.current ? 1 : -1;
+  useEffect(() => {
+    prev.current = value;
+  }, [value]);
+
+  return (
+    <span className={cx('relative inline-flex overflow-hidden tabular-nums', className)}>
+      <AnimatePresence mode="popLayout" initial={false}>
+        <m.span
+          key={value}
+          initial={{ y: `${direction * 100}%`, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: `${direction * -100}%`, opacity: 0 }}
+          transition={spring.snappy}
+          className="inline-block"
+        >
+          {value}
+        </m.span>
+      </AnimatePresence>
+    </span>
+  );
+};
+
 /* ---------- Formulários ---------- */
 
 export const inputClass =
-  'w-full h-10 px-3 rounded-md border border-line-strong bg-surface text-ink text-sm placeholder:text-muted focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-[border,box-shadow]';
+  'w-full h-10 px-3 rounded-lg border border-line-strong bg-surface text-ink text-sm placeholder:text-muted focus:outline-none focus:border-accent focus:ring-4 focus:ring-accent/15 transition-[border,box-shadow]';
 
 export const textareaClass = cx(inputClass, 'h-auto py-2.5 leading-relaxed resize-none');
 
@@ -98,7 +140,10 @@ export const Panel: React.FC<React.HTMLAttributes<HTMLElement> & { as?: 'div' | 
   ...props
 }) => (
   <Tag
-    className={cx('bg-surface border-y sm:border border-line sm:rounded-lg', className)}
+    className={cx(
+      'bg-surface border-y sm:border border-line sm:rounded-2xl sm:shadow-[0_1px_2px_rgb(0_0_0/0.03),0_8px_24px_-12px_rgb(0_0_0/0.08)]',
+      className
+    )}
     {...props}
   />
 );
@@ -108,10 +153,10 @@ export const PageHeader: React.FC<{
   description?: string;
   actions?: React.ReactNode;
 }> = ({ title, description, actions }) => (
-  <header className="flex items-end justify-between gap-4 px-4 sm:px-0 pt-1 pb-4">
+  <header className="flex items-end justify-between gap-4 px-4 sm:px-0 pt-1 pb-5">
     <div className="min-w-0">
-      <h1 className="text-xl sm:text-2xl font-semibold">{title}</h1>
-      {description && <p className="text-sm text-muted mt-1">{description}</p>}
+      <h1 className="text-[1.75rem] sm:text-[2rem] font-bold leading-none">{title}</h1>
+      {description && <p className="text-sm text-muted mt-2">{description}</p>}
     </div>
     {actions && <div className="shrink-0 flex items-center gap-2">{actions}</div>}
   </header>
@@ -123,14 +168,19 @@ export const EmptyState: React.FC<{
   action?: React.ReactNode;
   className?: string;
 }> = ({ title, text, action, className }) => (
-  <div className={cx('px-6 py-12 text-center', className)}>
-    <p className="font-medium text-ink">{title}</p>
+  <m.div
+    initial={{ opacity: 0, y: 8 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.35, ease: ease.out }}
+    className={cx('px-6 py-14 text-center', className)}
+  >
+    <p className="font-display text-lg font-semibold text-ink">{title}</p>
     {text && <p className="text-sm text-muted mt-1.5 max-w-sm mx-auto leading-relaxed">{text}</p>}
     {action && <div className="mt-5">{action}</div>}
-  </div>
+  </m.div>
 );
 
-/* ---------- Abas ---------- */
+/* ---------- Abas (indicador deslizante) ---------- */
 
 export interface TabItem<T extends string> {
   id: T;
@@ -149,6 +199,7 @@ export function Tabs<T extends string>({
   onChange: (id: T) => void;
   className?: string;
 }) {
+  const layoutId = useId();
   return (
     <div
       role="tablist"
@@ -163,15 +214,25 @@ export function Tabs<T extends string>({
             aria-selected={active}
             onClick={() => onChange(item.id)}
             className={cx(
-              'relative shrink-0 h-11 px-3 text-sm transition-colors',
+              'relative shrink-0 h-12 px-3 text-sm active:!scale-100',
               active ? 'text-ink font-semibold' : 'text-muted hover:text-ink'
             )}
           >
-            {item.label}
-            {item.count !== undefined && (
-              <span className="ml-1.5 font-mono text-xs text-muted">{item.count}</span>
+            <span className="relative z-10">
+              {item.label}
+              {item.count !== undefined && (
+                <span className={cx('ml-1.5 font-mono text-xs', active ? 'text-accent-ink' : 'text-muted')}>
+                  {item.count}
+                </span>
+              )}
+            </span>
+            {active && (
+              <m.span
+                layoutId={`tab-${layoutId}`}
+                transition={spring.snappy}
+                className="absolute left-2 right-2 -bottom-px h-[2.5px] rounded-full bg-accent"
+              />
             )}
-            {active && <span className="absolute left-3 right-3 -bottom-px h-0.5 bg-accent" />}
           </button>
         );
       })}
@@ -179,7 +240,7 @@ export function Tabs<T extends string>({
   );
 }
 
-/* ---------- Modal (bottom sheet no celular) ---------- */
+/* ---------- Modal (gaveta arrastável no celular) ---------- */
 
 export const Modal: React.FC<{
   open: boolean;
@@ -190,6 +251,8 @@ export const Modal: React.FC<{
   size?: 'sm' | 'md' | 'lg';
 }> = ({ open, onClose, title, children, footer, size = 'md' }) => {
   const titleId = useId();
+  const isMobile = useMediaQuery('(max-width: 639px)');
+  const dragControls = useDragControls();
 
   useEffect(() => {
     if (!open) return;
@@ -205,46 +268,80 @@ export const Modal: React.FC<{
     };
   }, [open, onClose]);
 
-  if (!open) return null;
+  const onDragEnd = (_: unknown, info: PanInfo) => {
+    if (info.offset.y > 110 || info.velocity.y > 600) onClose();
+  };
 
   const width = { sm: 'sm:max-w-sm', md: 'sm:max-w-lg', lg: 'sm:max-w-2xl' }[size];
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-6">
-      <div className="absolute inset-0 bg-black/45 animate-fade" onClick={onClose} aria-hidden="true" />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        className={cx(
-          'relative w-full bg-surface border-t sm:border border-line rounded-t-xl sm:rounded-lg shadow-xl animate-sheet',
-          'max-h-[92dvh] flex flex-col',
-          width
-        )}
-      >
-        <div className="flex items-center justify-between gap-3 pl-5 pr-2 h-14 border-b border-line shrink-0">
-          <h2 id={titleId} className="text-base font-semibold truncate">
-            {title}
-          </h2>
-          <IconButton label="Fechar" onClick={onClose}>
-            <X className="w-5 h-5" />
-          </IconButton>
+    <AnimatePresence>
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-6">
+          <m.div
+            className="absolute inset-0 bg-black/45 backdrop-blur-[2px]"
+            onClick={onClose}
+            aria-hidden="true"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          />
+          <m.div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={titleId}
+            initial={isMobile ? { y: '100%' } : { opacity: 0, y: 16, scale: 0.97 }}
+            animate={isMobile ? { y: 0 } : { opacity: 1, y: 0, scale: 1 }}
+            exit={isMobile ? { y: '100%' } : { opacity: 0, y: 8, scale: 0.98 }}
+            transition={isMobile ? { type: 'spring', stiffness: 380, damping: 38 } : spring.snappy}
+            drag={isMobile ? 'y' : false}
+            dragControls={dragControls}
+            dragListener={false}
+            dragConstraints={{ top: 0, bottom: 0 }}
+            dragElastic={{ top: 0, bottom: 0.7 }}
+            onDragEnd={onDragEnd}
+            className={cx(
+              'relative w-full bg-surface border-t sm:border border-line rounded-t-3xl sm:rounded-2xl shadow-2xl',
+              'max-h-[92dvh] flex flex-col',
+              width
+            )}
+          >
+            {/* Alça: arraste para baixo para fechar no celular */}
+            <div
+              className="sm:hidden flex justify-center pt-2.5 pb-1 touch-none cursor-grab"
+              onPointerDown={e => dragControls.start(e)}
+            >
+              <span className="w-10 h-1.5 rounded-full bg-line-strong" />
+            </div>
+            <div
+              className="flex items-center justify-between gap-3 pl-5 pr-2 h-12 sm:h-14 sm:border-b border-line shrink-0 touch-none sm:touch-auto"
+              onPointerDown={e => isMobile && dragControls.start(e)}
+            >
+              <h2 id={titleId} className="text-lg font-bold truncate">
+                {title}
+              </h2>
+              <IconButton label="Fechar" onClick={onClose}>
+                <X className="w-5 h-5" />
+              </IconButton>
+            </div>
+            <div className="overflow-y-auto px-5 py-4 flex-1 overscroll-contain">{children}</div>
+            {footer && (
+              <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-line shrink-0 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pb-3">
+                {footer}
+              </div>
+            )}
+          </m.div>
         </div>
-        <div className="overflow-y-auto px-5 py-4 flex-1">{children}</div>
-        {footer && (
-          <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-line shrink-0 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pb-3">
-            {footer}
-          </div>
-        )}
-      </div>
-    </div>,
+      )}
+    </AnimatePresence>,
     document.body
   );
 };
 
 /* ---------- Menu suspenso ---------- */
 
-export function useClickOutside<T extends HTMLElement>(open: boolean, onClose: () => void) {
+function useClickOutside<T extends HTMLElement>(open: boolean, onClose: () => void) {
   const ref = useRef<T>(null);
   useEffect(() => {
     if (!open) return;
@@ -277,18 +374,25 @@ export const Menu: React.FC<{
   return (
     <div ref={ref} className="relative">
       {trigger({ open, toggle: () => setOpen(o => !o) })}
-      {open && (
-        <div
-          role="menu"
-          className={cx(
-            'absolute z-40 mt-1 min-w-48 py-1 bg-surface border border-line rounded-md shadow-lg animate-fade',
-            align === 'right' ? 'right-0' : 'left-0',
-            className
-          )}
-        >
-          {children(close)}
-        </div>
-      )}
+      <AnimatePresence>
+        {open && (
+          <m.div
+            role="menu"
+            initial={{ opacity: 0, scale: 0.94, y: -4 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.96, y: -2, transition: { duration: 0.1 } }}
+            transition={spring.snappy}
+            style={{ transformOrigin: align === 'right' ? 'top right' : 'top left' }}
+            className={cx(
+              'absolute z-40 mt-1.5 min-w-52 p-1 bg-surface border border-line rounded-xl shadow-[0_12px_32px_-8px_rgb(0_0_0/0.18)]',
+              align === 'right' ? 'right-0' : 'left-0',
+              className
+            )}
+          >
+            {children(close)}
+          </m.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
@@ -302,7 +406,7 @@ export const MenuItem: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement> & 
     role="menuitem"
     type="button"
     className={cx(
-      'w-full flex items-center gap-2.5 px-3 h-9 text-sm text-left transition-colors',
+      'w-full flex items-center gap-2.5 px-2.5 h-9 rounded-lg text-sm text-left active:!scale-100',
       danger ? 'text-danger hover:bg-danger-soft' : 'text-ink-2 hover:bg-subtle hover:text-ink',
       className
     )}
@@ -319,14 +423,14 @@ export function toast(message: string) {
 }
 
 export const Toaster: React.FC = () => {
-  const [message, setMessage] = useState<string | null>(null);
+  const [toastState, setToastState] = useState<{ id: number; message: string } | null>(null);
 
   useEffect(() => {
     let timer: number | undefined;
     const handle = (e: Event) => {
-      setMessage((e as CustomEvent<string>).detail);
+      setToastState({ id: Date.now(), message: (e as CustomEvent<string>).detail });
       window.clearTimeout(timer);
-      timer = window.setTimeout(() => setMessage(null), 2400);
+      timer = window.setTimeout(() => setToastState(null), 2400);
     };
     window.addEventListener(TOAST_EVENT, handle);
     return () => {
@@ -335,14 +439,23 @@ export const Toaster: React.FC = () => {
     };
   }, []);
 
-  if (!message) return null;
-
   return (
-    <div
-      role="status"
-      className="fixed z-[60] left-1/2 -translate-x-1/2 bottom-[calc(var(--tabbar-h)+1rem)] lg:bottom-6 px-4 py-2.5 rounded-md bg-ink text-bg text-sm shadow-lg animate-sheet"
-    >
-      {message}
+    <div className="fixed z-[60] inset-x-0 bottom-[calc(var(--tabbar-h)+1rem)] lg:bottom-6 flex justify-center pointer-events-none">
+      <AnimatePresence mode="popLayout">
+        {toastState && (
+          <m.div
+            key={toastState.id}
+            role="status"
+            initial={{ opacity: 0, y: 24, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 12, scale: 0.95, transition: { duration: 0.15 } }}
+            transition={spring.bouncy}
+            className="px-4 py-2.5 rounded-full bg-ink text-bg text-sm font-medium shadow-xl"
+          >
+            {toastState.message}
+          </m.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

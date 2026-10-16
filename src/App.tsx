@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { useHashRoute } from './lib/router';
 import { Navbar } from './components/Navbar';
@@ -7,6 +7,9 @@ import { RightPanel } from './components/RightPanel';
 import { CreatePostModal } from './components/CreatePostModal';
 import { Toaster, cx } from './components/ui';
 import { PenSquare } from 'lucide-react';
+import { AnimatePresence, LazyMotion, MotionConfig } from 'motion/react';
+import * as m from 'motion/react-m';
+import { ease, spring } from './lib/motion';
 
 import { FeedView } from './views/FeedView';
 import { ExploreView } from './views/ExploreView';
@@ -19,12 +22,19 @@ import { AdminView } from './views/AdminView';
 import { SettingsView } from './views/SettingsView';
 import { AuthView } from './views/AuthView';
 
+const loadMotionFeatures = () => import('./lib/motionFeatures').then(mod => mod.default);
+
 function MainAppContent() {
   const { currentUser } = useAuth();
   const { route, navigate, replace } = useHashRoute();
   const [isComposerOpen, setIsComposerOpen] = useState(false);
 
   const { view, param } = route;
+
+  // Trocar de página (inclusive pelo botão voltar) fecha o compositor aberto.
+  useEffect(() => {
+    setIsComposerOpen(false);
+  }, [view, param]);
 
   const openComposer = () => {
     if (currentUser) setIsComposerOpen(true);
@@ -87,7 +97,16 @@ function MainAppContent() {
         )}
 
         <main id="main" className="flex-1 min-w-0">
-          {renderView()}
+          <AnimatePresence mode="wait" initial={false}>
+            <m.div
+              key={`${view}/${param ?? ''}`}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0, transition: { duration: 0.28, ease: ease.out } }}
+              exit={{ opacity: 0, transition: { duration: 0.08 } }}
+            >
+              {renderView()}
+            </m.div>
+          </AnimatePresence>
         </main>
 
         {showRightPanel && <RightPanel onNavigate={navigate} />}
@@ -95,15 +114,21 @@ function MainAppContent() {
 
       {!isAuth && <MobileTabBar currentView={view} currentParam={param} onNavigate={navigate} />}
 
-      {showFab && (
-        <button
-          onClick={openComposer}
-          aria-label="Nova publicação"
-          className="lg:hidden fixed z-30 right-4 bottom-[calc(var(--tabbar-h)+1rem)] w-14 h-14 rounded-full bg-accent text-accent-fg shadow-lg flex items-center justify-center active:scale-95 transition-transform"
-        >
-          <PenSquare className="w-6 h-6" />
-        </button>
-      )}
+      <AnimatePresence>
+        {showFab && (
+          <m.button
+            onClick={openComposer}
+            aria-label="Nova publicação"
+            initial={{ scale: 0, rotate: -45 }}
+            animate={{ scale: 1, rotate: 0 }}
+            exit={{ scale: 0, rotate: 45 }}
+            transition={spring.bouncy}
+            className="lg:hidden fixed z-30 right-4 bottom-[calc(var(--tabbar-h)+1rem)] w-14 h-14 rounded-2xl bg-accent text-accent-fg shadow-[0_10px_24px_-6px_rgb(31_107_68/0.55)] flex items-center justify-center"
+          >
+            <PenSquare className="w-6 h-6" />
+          </m.button>
+        )}
+      </AnimatePresence>
 
       <CreatePostModal
         isOpen={isComposerOpen}
@@ -120,8 +145,12 @@ function MainAppContent() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <MainAppContent />
-    </AuthProvider>
+    <LazyMotion features={loadMotionFeatures} strict>
+      <MotionConfig reducedMotion="user">
+        <AuthProvider>
+          <MainAppContent />
+        </AuthProvider>
+      </MotionConfig>
+    </LazyMotion>
   );
 }

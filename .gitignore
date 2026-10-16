@@ -1,9 +1,7 @@
 node_modules/
-build/
 dist/
-coverage/
+graphify-out/
 .DS_Store
 *.log
-graphify-out/
 .env
 .env.local

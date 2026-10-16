@@ -8,6 +8,9 @@ import { CreateEventModal } from '../components/CreateEventModal';
 import { Button, EmptyState, PageHeader, Panel, Tabs, cx } from '../components/ui';
 import { IFSP_CAMPUSES, EVENT_CATEGORIES } from '../data/campuses';
 import { Plus } from 'lucide-react';
+import { AnimatePresence } from 'motion/react';
+import * as m from 'motion/react-m';
+import { spring } from '../lib/motion';
 
 interface EventsViewProps {
   onNavigate: Navigate;
@@ -87,13 +90,14 @@ export const EventsView: React.FC<EventsViewProps> = ({ onNavigate, highlightEve
                 onClick={() => setCategory(cat.id)}
                 aria-pressed={category === cat.id}
                 className={cx(
-                  'shrink-0 h-8 px-3 rounded-md text-[13px] border transition-colors',
-                  category === cat.id
-                    ? 'bg-ink text-bg border-ink'
-                    : 'border-line text-ink-2 hover:border-line-strong'
+                  'relative shrink-0 h-8 px-3.5 rounded-full text-[13px] border',
+                  category === cat.id ? 'text-bg border-transparent font-medium' : 'border-line text-ink-2 hover:border-line-strong'
                 )}
               >
-                {cat.label}
+                {category === cat.id && (
+                  <m.span layoutId="event-category" transition={spring.snappy} className="absolute inset-0 rounded-full bg-ink" />
+                )}
+                <span className="relative">{cat.label}</span>
               </button>
             ))}
           </div>
@@ -101,7 +105,7 @@ export const EventsView: React.FC<EventsViewProps> = ({ onNavigate, highlightEve
             value={campus}
             onChange={e => setCampus(e.target.value)}
             aria-label="Filtrar por campus"
-            className="h-8 px-2 rounded-md border border-line bg-surface text-[13px] text-ink-2 focus:outline-none focus:border-accent sm:w-40"
+            className="h-8 px-2.5 rounded-full border border-line bg-surface text-[13px] text-ink-2 focus:outline-none focus:border-accent sm:w-40"
           >
             <option value="all">Todos os campi</option>
             {IFSP_CAMPUSES.map(c => (
@@ -126,14 +130,16 @@ export const EventsView: React.FC<EventsViewProps> = ({ onNavigate, highlightEve
           />
         ) : (
           <div className="divide-y divide-line">
-            {events.map(event => (
-              <EventCard
-                key={event.id}
-                event={event}
-                onNavigate={onNavigate}
-                highlighted={event.id === highlightEventId}
-              />
-            ))}
+            <AnimatePresence initial={false}>
+              {events.map(event => (
+                <EventCard
+                  key={event.id}
+                  event={event}
+                  onNavigate={onNavigate}
+                  highlighted={event.id === highlightEventId}
+                />
+              ))}
+            </AnimatePresence>
           </div>
         )}
       </Panel>

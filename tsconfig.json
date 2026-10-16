@@ -11,9 +11,6 @@
     "jsx": "react-jsx",
     "strict": true,
     "noUnusedLocals": true,
-    "paths": {
-      "@/*": ["./*"]
-    },
     "allowImportingTsExtensions": true,
     "noEmit": true
   },
