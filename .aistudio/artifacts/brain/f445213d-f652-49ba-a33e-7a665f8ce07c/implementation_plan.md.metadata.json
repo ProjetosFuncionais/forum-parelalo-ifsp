@@ -1,6 +1,0 @@
-{
-  "summary": "Plano detalhado de implementação para o Fórum Paralelo IFSP, cobrindo autenticação, perfis acadêmicos, feed de publicações, comentários com respostas, interações de curtir e salvar, sistema de seguir e seguidores, central de notificações, mensagens diretas/chat com histórico persistente, módulo de eventos acadêmicos com confirmação de presença, busca universal, painel de moderação administrativa e temas claro/escuro com a identidade visual do IFSP.",
-  "updatedAt": "2026-10-16T16:51:38.815300360Z",
-  "requestFeedback": true,
-  "userFacing": true
-}
