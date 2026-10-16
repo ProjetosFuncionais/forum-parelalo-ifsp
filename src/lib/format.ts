@@ -62,11 +62,6 @@ export function eventDateParts(ymd: string) {
   };
 }
 
-export function formatEventDate(ymd: string): string {
-  const { day, month, weekday } = eventDateParts(ymd);
-  return `${weekday}, ${Number(day)} ${month}`;
-}
-
 /** O status salvo nunca era atualizado; aqui ele é derivado da data. */
 export function eventStatus(event: AcademicEvent, now = new Date()): EventStatus {
   const today = todayYmd(now);
@@ -77,11 +72,6 @@ export function eventStatus(event: AcademicEvent, now = new Date()): EventStatus
 
 export function plural(n: number, one: string, many: string): string {
   return `${n} ${n === 1 ? one : many}`;
-}
-
-export function compactNumber(n: number): string {
-  if (n < 1000) return String(n);
-  return `${(n / 1000).toFixed(n < 10_000 ? 1 : 0).replace('.', ',')} mil`;
 }
 
 export const ROLE_LABELS: Record<string, string> = {

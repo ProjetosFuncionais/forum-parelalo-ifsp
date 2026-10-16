@@ -236,17 +236,6 @@ class StorageService {
     return users[index];
   }
 
-  public searchUsers(query: string): User[] {
-    if (!query.trim()) return [];
-    const q = query.toLowerCase();
-    return this.getUsers().filter(u => 
-      u.name.toLowerCase().includes(q) || 
-      u.username.toLowerCase().includes(q) || 
-      u.campus.toLowerCase().includes(q) ||
-      u.course.toLowerCase().includes(q)
-    );
-  }
-
   public toggleBlockUser(currentUserId: string, targetUserId: string): boolean {
     const user = this.getUserById(currentUserId);
     if (!user) return false;
