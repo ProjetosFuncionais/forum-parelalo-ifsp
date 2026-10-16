@@ -1,542 +1,461 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { storage } from '../services/storage';
+import { Navigate } from '../lib/router';
+import { Post, User } from '../types';
 import { PostCard } from '../components/PostCard';
 import { EventCard } from '../components/EventCard';
-import { UserAvatar } from '../components/UserAvatar';
+import { ReportModal } from '../components/ReportModal';
+import { RoleTag, UserAvatar } from '../components/UserAvatar';
+import {
+  Button, EmptyState, Field, IconButton, Menu, MenuItem, Modal, Panel, Tabs,
+  inputClass, textareaClass, toast
+} from '../components/ui';
 import { IFSP_CAMPUSES } from '../data/campuses';
-import { 
-  GraduationCap, Calendar, MessageSquare, 
-  UserPlus, Check, Edit3, Bookmark, Users, ShieldAlert, X
-} from 'lucide-react';
+import { ROLE_LABELS } from '../lib/format';
+import { MoreHorizontal, Flag, Ban, Link2, MessageCircle } from 'lucide-react';
+import { absoluteUrl } from '../lib/router';
+
+type ProfileTab = 'posts' | 'events' | 'saved' | 'followers' | 'following';
 
 interface ProfileViewProps {
   userId?: string;
-  onNavigate: (view: string, param?: string) => void;
+  initialTab?: ProfileTab;
+  onNavigate: Navigate;
 }
 
-export const ProfileView: React.FC<ProfileViewProps> = ({
-  userId,
-  onNavigate
-}) => {
-  const { currentUser, updateProfile } = useAuth();
-  const [activeTab, setActiveTab] = useState<'posts' | 'events' | 'saved' | 'followers' | 'following'>('posts');
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [, setTick] = useState(0);
+export const ProfileView: React.FC<ProfileViewProps> = ({ userId, initialTab = 'posts', onNavigate }) => {
+  const { currentUser, refreshData } = useAuth();
+  const [tab, setTab] = useState<ProfileTab>(initialTab);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [showReport, setShowReport] = useState(false);
 
-  // Form states for edit profile
-  const targetId = userId || currentUser?.id || 'user_vitor';
-  const targetUser = storage.getUserById(targetId);
-
-  const [editName, setEditName] = useState(targetUser?.name || '');
-  const [editBio, setEditBio] = useState(targetUser?.bio || '');
-  const [editCourse, setEditCourse] = useState(targetUser?.course || '');
-  const [editCampus, setEditCampus] = useState(targetUser?.campus || '');
-  const [editSemester, setEditSemester] = useState(targetUser?.semester || 1);
-  const [editAvatar, setEditAvatar] = useState(targetUser?.avatarUrl || '');
-
-  if (!targetUser) {
+  if (!userId) {
     return (
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-10 text-center space-y-2 max-w-md mx-auto">
-        <h3 className="text-base font-bold text-slate-900 dark:text-white">
-          Usuário não encontrado
-        </h3>
-        <p className="text-xs text-slate-500">
-          O perfil solicitado não existe ou foi removido.
-        </p>
-        <button
-          onClick={() => onNavigate('feed')}
-          className="text-xs text-emerald-600 font-semibold hover:underline"
-        >
-          Voltar ao feed
-        </button>
-      </div>
+      <Panel className="max-w-md mx-auto">
+        <EmptyState
+          title="Entre para ver seu perfil"
+          action={<Button variant="primary" size="sm" onClick={() => onNavigate('auth')}>Entrar</Button>}
+        />
+      </Panel>
     );
   }
 
-  const isOwnProfile = currentUser?.id === targetUser.id;
-  const isFollowing = currentUser ? storage.isFollowing(currentUser.id, targetUser.id) : false;
+  const user = storage.getUserById(userId);
 
-  const userPosts = storage.getPosts().filter(p => p.authorId === targetUser.id);
-  const userEvents = storage.getEvents().filter(e => e.organizerId === targetUser.id);
-  const savedPosts = isOwnProfile && currentUser 
-    ? storage.getSavedPosts(currentUser.id).map(s => storage.getPostById(s.postId)).filter(Boolean) as ReturnType<typeof storage.getPosts>
+  if (!user) {
+    return (
+      <Panel className="max-w-md mx-auto">
+        <EmptyState
+          title="Perfil não encontrado"
+          text="Essa conta não existe ou foi removida."
+          action={<Button size="sm" onClick={() => onNavigate('feed')}>Ir para o início</Button>}
+        />
+      </Panel>
+    );
+  }
+
+  const isOwn = currentUser?.id === user.id;
+  const isFollowing = currentUser ? storage.isFollowing(currentUser.id, user.id) : false;
+  const isBlocked = !!currentUser?.blockedUsers?.includes(user.id);
+
+  const posts = storage.getPosts()
+    .filter(p => p.authorId === user.id)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const events = storage.getEvents()
+    .filter(e => e.organizerId === user.id)
+    .sort((a, b) => b.date.localeCompare(a.date));
+  const saved: Post[] = isOwn
+    ? storage.getSavedPosts(user.id)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+        .map(s => storage.getPostById(s.postId))
+        .filter((p): p is Post => !!p)
     : [];
+  const followers = storage.getFollowers(user.id);
+  const following = storage.getFollowing(user.id);
 
-  const followers = storage.getFollowers(targetUser.id);
-  const following = storage.getFollowing(targetUser.id);
+  const handleFollow = () => {
+    if (!currentUser) return onNavigate('auth');
+    storage.toggleFollow(currentUser.id, user.id);
+  };
 
-  const handleToggleFollow = () => {
-    if (!currentUser) {
-      onNavigate('auth');
-      return;
+  const handleBlock = () => {
+    if (!currentUser) return onNavigate('auth');
+    if (!isBlocked && !window.confirm(`Bloquear ${user.name}? Você deixará de ver as publicações e mensagens dessa pessoa.`)) return;
+    const nowBlocked = storage.toggleBlockUser(currentUser.id, user.id);
+    if (nowBlocked && isFollowing) storage.toggleFollow(currentUser.id, user.id);
+    refreshData();
+    toast(nowBlocked ? 'Usuário bloqueado' : 'Usuário desbloqueado');
+  };
+
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(absoluteUrl('profile', user.id));
+      toast('Link do perfil copiado');
+    } catch {
+      /* sem permissão */
     }
-    storage.toggleFollow(currentUser.id, targetUser.id);
-    setTick(t => t + 1);
   };
 
-  const handleSaveProfile = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!isOwnProfile) return;
-
-    updateProfile({
-      name: editName.trim(),
-      bio: editBio.trim(),
-      course: editCourse.trim(),
-      campus: editCampus,
-      semester: Number(editSemester),
-      avatarUrl: editAvatar.trim() || targetUser.avatarUrl
-    });
-
-    setIsEditModalOpen(false);
-    setTick(t => t + 1);
-  };
+  const tabs = [
+    { id: 'posts' as const, label: 'Publicações', count: posts.length },
+    { id: 'events' as const, label: 'Eventos', count: events.length },
+    ...(isOwn ? [{ id: 'saved' as const, label: 'Salvos', count: saved.length }] : []),
+    { id: 'followers' as const, label: 'Seguidores', count: followers.length },
+    { id: 'following' as const, label: 'Seguindo', count: following.length }
+  ];
 
   return (
-    <div className="space-y-5 max-w-3xl mx-auto w-full">
-      
-      {/* Profile Header Card */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-xs">
-        
-        {/* Banner Area */}
-        <div className="h-36 sm:h-44 bg-gradient-to-r from-emerald-800 via-emerald-600 to-teal-700 relative">
-          {targetUser.bannerUrl && (
-            <img
-              src={targetUser.bannerUrl}
-              alt="Capa de perfil"
-              referrerPolicy="no-referrer"
-              className="w-full h-full object-cover opacity-60"
-            />
+    <div className="max-w-2xl mx-auto w-full">
+      <Panel className="overflow-hidden">
+        <div className="h-24 sm:h-32 bg-subtle border-b border-line">
+          {user.bannerUrl && (
+            <img src={user.bannerUrl} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
           )}
-          <div className="absolute top-3 right-3">
-            <span className="px-2.5 py-1 text-[11px] font-semibold rounded-md bg-black/40 backdrop-blur-xs text-white border border-white/20">
-              {targetUser.campus}
-            </span>
-          </div>
         </div>
 
-        {/* Profile Info Section */}
-        <div className="px-6 pb-6 pt-0 relative">
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 -mt-12 sm:-mt-16 mb-4">
-            {/* Avatar */}
-            <div className="ring-4 ring-white dark:ring-slate-900 rounded-full inline-block bg-white dark:bg-slate-900 shadow-md">
-              <UserAvatar user={targetUser} size="xl" showRoleBadge />
-            </div>
+        <div className="px-4 sm:px-6 pb-5">
+          <div className="flex items-end justify-between gap-3 -mt-10 sm:-mt-12">
+            <UserAvatar user={user} size="xl" className="ring-4 ring-surface" />
 
-            {/* Actions */}
-            <div className="flex items-center gap-2">
-              {isOwnProfile ? (
-                <button
-                  onClick={() => setIsEditModalOpen(true)}
-                  className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-colors"
-                >
-                  <Edit3 className="w-3.5 h-3.5" />
-                  <span>Editar Perfil</span>
-                </button>
+            <div className="flex items-center gap-2 pb-1">
+              {isOwn ? (
+                <Button size="sm" onClick={() => setIsEditOpen(true)}>Editar perfil</Button>
               ) : (
                 <>
-                  <button
-                    onClick={() => onNavigate('chat', targetUser.id)}
-                    className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-colors"
-                  >
-                    <MessageSquare className="w-3.5 h-3.5" />
-                    <span>Mensagem</span>
-                  </button>
-
-                  <button
-                    onClick={handleToggleFollow}
-                    className={`flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-xl transition-colors shadow-xs ${
-                      isFollowing
-                        ? 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200'
-                        : 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                    }`}
-                  >
-                    {isFollowing ? (
-                      <>
-                        <Check className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>Seguindo</span>
-                      </>
-                    ) : (
-                      <>
-                        <UserPlus className="w-3.5 h-3.5" />
-                        <span>Seguir</span>
-                      </>
-                    )}
-                  </button>
+                  {!isBlocked && (
+                    <IconButton
+                      label="Enviar mensagem"
+                      className="border border-line-strong w-8 h-8"
+                      onClick={() => (currentUser ? onNavigate('chat', user.id) : onNavigate('auth'))}
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                    </IconButton>
+                  )}
+                  {isBlocked ? (
+                    <Button size="sm" variant="secondary" onClick={handleBlock}>Desbloquear</Button>
+                  ) : (
+                    <Button size="sm" variant={isFollowing ? 'secondary' : 'primary'} onClick={handleFollow}>
+                      {isFollowing ? 'Seguindo' : 'Seguir'}
+                    </Button>
+                  )}
                 </>
               )}
-            </div>
-          </div>
-
-          {/* User Details */}
-          <div className="space-y-3">
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-xl font-extrabold text-slate-900 dark:text-white">
-                  {targetUser.name}
-                </h1>
-                <span className="text-xs text-slate-400">@{targetUser.username}</span>
-              </div>
-
-              <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300 mt-1 flex-wrap">
-                <span className="font-semibold text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
-                  <GraduationCap className="w-3.5 h-3.5" />
-                  {targetUser.course}
-                </span>
-                {targetUser.semester && (
+              <Menu
+                trigger={({ toggle, open }) => (
+                  <IconButton label="Mais opções" onClick={toggle} aria-expanded={open} className="border border-line-strong w-8 h-8">
+                    <MoreHorizontal className="w-4 h-4" />
+                  </IconButton>
+                )}
+              >
+                {close => (
                   <>
-                    <span aria-hidden="true">·</span>
-                    <span>{targetUser.semester}º Semestre</span>
+                    <MenuItem onClick={() => { copyLink(); close(); }}>
+                      <Link2 className="w-4 h-4" /> Copiar link do perfil
+                    </MenuItem>
+                    {!isOwn && (
+                      <>
+                        <MenuItem onClick={() => { close(); handleBlock(); }}>
+                          <Ban className="w-4 h-4" /> {isBlocked ? 'Desbloquear' : 'Bloquear'}
+                        </MenuItem>
+                        <MenuItem onClick={() => { close(); if (!currentUser) onNavigate('auth'); else setShowReport(true); }}>
+                          <Flag className="w-4 h-4" /> Denunciar perfil
+                        </MenuItem>
+                      </>
+                    )}
                   </>
                 )}
-                <span aria-hidden="true">·</span>
-                <span>{targetUser.campus}</span>
-              </div>
-            </div>
-
-            {/* Bio */}
-            {targetUser.bio && (
-              <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed max-w-2xl">
-                {targetUser.bio}
-              </p>
-            )}
-
-            {/* Interests Tags */}
-            {targetUser.interests && targetUser.interests.length > 0 && (
-              <div className="flex items-center gap-1.5 flex-wrap pt-1">
-                <span className="text-[11px] text-slate-400">Interesses:</span>
-                {targetUser.interests.map(int => (
-                  <span
-                    key={int}
-                    className="text-[11px] px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium"
-                  >
-                    {int}
-                  </span>
-                ))}
-              </div>
-            )}
-
-            {/* Metrics */}
-            <div className="flex items-center gap-4 pt-2 text-xs font-mono tabular-nums text-slate-600 dark:text-slate-400 border-t border-slate-100 dark:border-slate-800">
-              <button
-                onClick={() => setActiveTab('followers')}
-                className="hover:text-emerald-600 transition-colors"
-              >
-                <strong className="text-slate-900 dark:text-white">{targetUser.followersCount}</strong> seguidores
-              </button>
-              <span>·</span>
-              <button
-                onClick={() => setActiveTab('following')}
-                className="hover:text-emerald-600 transition-colors"
-              >
-                <strong className="text-slate-900 dark:text-white">{targetUser.followingCount}</strong> seguindo
-              </button>
-              <span>·</span>
-              <span>
-                <strong className="text-slate-900 dark:text-white">{userPosts.length}</strong> publicações
-              </span>
+              </Menu>
             </div>
           </div>
-        </div>
 
-        {/* Profile Tabs */}
-        <div className="flex items-center gap-1 px-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 text-xs font-medium overflow-x-auto">
-          <button
-            onClick={() => setActiveTab('posts')}
-            className={`py-3 px-3 border-b-2 transition-colors whitespace-nowrap ${
-              activeTab === 'posts'
-                ? 'border-emerald-600 text-emerald-600 dark:text-emerald-400 font-bold'
-                : 'border-transparent text-slate-500 hover:text-slate-900'
-            }`}
-          >
-            Publicações ({userPosts.length})
-          </button>
+          <div className="mt-3">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-xl font-semibold">{user.name}</h1>
+              <RoleTag role={user.role} />
+              {user.isSuspended && (
+                <span className="text-xs text-danger font-medium">Conta suspensa</span>
+              )}
+            </div>
+            <p className="text-sm text-muted">@{user.username}</p>
+          </div>
 
-          <button
-            onClick={() => setActiveTab('events')}
-            className={`py-3 px-3 border-b-2 transition-colors whitespace-nowrap ${
-              activeTab === 'events'
-                ? 'border-emerald-600 text-emerald-600 dark:text-emerald-400 font-bold'
-                : 'border-transparent text-slate-500 hover:text-slate-900'
-            }`}
-          >
-            Eventos ({userEvents.length})
-          </button>
+          {user.bio && <p className="mt-3 text-[15px] text-ink leading-relaxed whitespace-pre-line">{user.bio}</p>}
 
-          {isOwnProfile && (
-            <button
-              onClick={() => setActiveTab('saved')}
-              className={`flex items-center gap-1 py-3 px-3 border-b-2 transition-colors whitespace-nowrap ${
-                activeTab === 'saved'
-                  ? 'border-emerald-600 text-emerald-600 dark:text-emerald-400 font-bold'
-                  : 'border-transparent text-slate-500 hover:text-slate-900'
-              }`}
-            >
-              <Bookmark className="w-3.5 h-3.5" />
-              <span>Salvos ({savedPosts.length})</span>
-            </button>
+          <dl className="mt-3 text-sm text-ink-2 space-y-0.5">
+            <div>
+              <dt className="sr-only">Curso</dt>
+              <dd>
+                {user.course}
+                {user.semester ? <span className="text-muted"> · {user.semester}º semestre</span> : null}
+              </dd>
+            </div>
+            <div>
+              <dt className="sr-only">Campus</dt>
+              <dd className="text-muted">{user.campus}</dd>
+            </div>
+          </dl>
+
+          {user.interests.length > 0 && (
+            <ul className="mt-3 flex flex-wrap gap-1.5" aria-label="Interesses">
+              {user.interests.map(i => (
+                <li key={i}>
+                  <button
+                    onClick={() => onNavigate('explore', i)}
+                    className="h-7 px-2.5 rounded-md bg-subtle text-[13px] text-ink-2 hover:text-ink"
+                  >
+                    {i}
+                  </button>
+                </li>
+              ))}
+            </ul>
           )}
 
-          <button
-            onClick={() => setActiveTab('followers')}
-            className={`py-3 px-3 border-b-2 transition-colors whitespace-nowrap ${
-              activeTab === 'followers'
-                ? 'border-emerald-600 text-emerald-600 dark:text-emerald-400 font-bold'
-                : 'border-transparent text-slate-500 hover:text-slate-900'
-            }`}
-          >
-            Seguidores ({followers.length})
-          </button>
-
-          <button
-            onClick={() => setActiveTab('following')}
-            className={`py-3 px-3 border-b-2 transition-colors whitespace-nowrap ${
-              activeTab === 'following'
-                ? 'border-emerald-600 text-emerald-600 dark:text-emerald-400 font-bold'
-                : 'border-transparent text-slate-500 hover:text-slate-900'
-            }`}
-          >
-            Seguindo ({following.length})
-          </button>
-        </div>
-
-      </div>
-
-      {/* Tab Content Stream */}
-      <div className="space-y-4">
-        {activeTab === 'posts' && (
-          userPosts.length === 0 ? (
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-8 text-center text-xs text-slate-400">
-              Nenhuma publicação feita por este usuário ainda.
-            </div>
-          ) : (
-            userPosts.map(post => (
-              <PostCard
-                key={post.id}
-                post={post}
-                onNavigate={onNavigate}
-                onPostUpdated={() => setTick(t => t + 1)}
-                onPostDeleted={() => setTick(t => t + 1)}
-              />
-            ))
-          )
-        )}
-
-        {activeTab === 'events' && (
-          userEvents.length === 0 ? (
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-8 text-center text-xs text-slate-400">
-              Nenhum evento organizado ainda.
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {userEvents.map(event => (
-                <EventCard
-                  key={event.id}
-                  event={event}
-                  onNavigate={onNavigate}
-                  onEventUpdated={() => setTick(t => t + 1)}
-                  onEventDeleted={() => setTick(t => t + 1)}
-                />
-              ))}
-            </div>
-          )
-        )}
-
-        {activeTab === 'saved' && isOwnProfile && (
-          savedPosts.length === 0 ? (
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-8 text-center text-xs text-slate-400">
-              Você ainda não salvou publicações. Use o ícone de marcador nas postagens para guardar resumos e avisos.
-            </div>
-          ) : (
-            savedPosts.map(post => (
-              <PostCard
-                key={post.id}
-                post={post}
-                onNavigate={onNavigate}
-                onPostUpdated={() => setTick(t => t + 1)}
-                onPostDeleted={() => setTick(t => t + 1)}
-              />
-            ))
-          )
-        )}
-
-        {activeTab === 'followers' && (
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 divide-y divide-slate-100 dark:divide-slate-800">
-            {followers.length === 0 ? (
-              <p className="text-center py-6 text-xs text-slate-400">Nenhum seguidor ainda.</p>
-            ) : (
-              followers.map(f => (
-                <div key={f.id} className="py-2.5 flex items-center justify-between">
-                  <div
-                    onClick={() => onNavigate('profile', f.id)}
-                    className="flex items-center gap-2.5 cursor-pointer hover:opacity-80"
-                  >
-                    <UserAvatar user={f} size="sm" showRoleBadge />
-                    <div>
-                      <p className="text-xs font-bold text-slate-900 dark:text-slate-100">{f.name}</p>
-                      <p className="text-[11px] text-slate-500">{f.campus} · {f.course}</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => onNavigate('profile', f.id)}
-                    className="text-xs text-emerald-600 font-medium hover:underline"
-                  >
-                    Ver Perfil
-                  </button>
-                </div>
-              ))
-            )}
-          </div>
-        )}
-
-        {activeTab === 'following' && (
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 divide-y divide-slate-100 dark:divide-slate-800">
-            {following.length === 0 ? (
-              <p className="text-center py-6 text-xs text-slate-400">Não está seguindo ninguém ainda.</p>
-            ) : (
-              following.map(f => (
-                <div key={f.id} className="py-2.5 flex items-center justify-between">
-                  <div
-                    onClick={() => onNavigate('profile', f.id)}
-                    className="flex items-center gap-2.5 cursor-pointer hover:opacity-80"
-                  >
-                    <UserAvatar user={f} size="sm" showRoleBadge />
-                    <div>
-                      <p className="text-xs font-bold text-slate-900 dark:text-slate-100">{f.name}</p>
-                      <p className="text-[11px] text-slate-500">{f.campus} · {f.course}</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => onNavigate('profile', f.id)}
-                    className="text-xs text-emerald-600 font-medium hover:underline"
-                  >
-                    Ver Perfil
-                  </button>
-                </div>
-              ))
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Edit Profile Modal */}
-      {isEditModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div className="w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-6 relative max-h-[90vh] overflow-y-auto">
-            <button
-              onClick={() => setIsEditModalOpen(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-1"
-            >
-              <X className="w-5 h-5" />
+          <p className="mt-4 flex gap-4 text-sm">
+            <button onClick={() => setTab('followers')} className="hover:underline">
+              <span className="font-semibold text-ink">{followers.length}</span>{' '}
+              <span className="text-muted">seguidores</span>
             </button>
-
-            <h3 className="text-base font-bold text-slate-900 dark:text-white mb-4">
-              Editar Perfil Acadêmico
-            </h3>
-
-            <form onSubmit={handleSaveProfile} className="space-y-3.5 text-xs">
-              <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Nome Completo:
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={editName}
-                  onChange={e => setEditName(e.target.value)}
-                  className="w-full p-2.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Biografia Acadêmica:
-                </label>
-                <textarea
-                  rows={3}
-                  value={editBio}
-                  onChange={e => setEditBio(e.target.value)}
-                  className="w-full p-2.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500 resize-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Campus:
-                  </label>
-                  <select
-                    value={editCampus}
-                    onChange={e => setEditCampus(e.target.value)}
-                    className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
-                  >
-                    {IFSP_CAMPUSES.map(c => (
-                      <option key={c.id} value={c.name}>{c.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Semestre:
-                  </label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={12}
-                    value={editSemester}
-                    onChange={e => setEditSemester(Number(e.target.value))}
-                    className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Curso:
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={editCourse}
-                  onChange={e => setEditCourse(e.target.value)}
-                  className="w-full p-2.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Foto de Perfil (URL do Avatar):
-                </label>
-                <input
-                  type="url"
-                  value={editAvatar}
-                  onChange={e => setEditAvatar(e.target.value)}
-                  placeholder="https://..."
-                  className="w-full p-2.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setIsEditModalOpen(false)}
-                  className="px-3.5 py-1.5 text-slate-600 dark:text-slate-400 hover:bg-slate-100 rounded-lg"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-1.5 font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg"
-                >
-                  Salvar Alterações
-                </button>
-              </div>
-            </form>
-          </div>
+            <button onClick={() => setTab('following')} className="hover:underline">
+              <span className="font-semibold text-ink">{following.length}</span>{' '}
+              <span className="text-muted">seguindo</span>
+            </button>
+          </p>
         </div>
+
+        <Tabs items={tabs} value={tab} onChange={setTab} className="border-t" />
+
+        {isBlocked && tab !== 'followers' && tab !== 'following' ? (
+          <EmptyState title="Você bloqueou esta pessoa" text="Desbloqueie para ver as publicações dela." />
+        ) : (
+          <>
+            {tab === 'posts' && (
+              posts.length === 0 ? (
+                <EmptyState title={isOwn ? 'Você ainda não publicou' : 'Nenhuma publicação ainda'} />
+              ) : (
+                <div className="divide-y divide-line">
+                  {posts.map(p => <PostCard key={p.id} post={p} onNavigate={onNavigate} />)}
+                </div>
+              )
+            )}
+
+            {tab === 'events' && (
+              events.length === 0 ? (
+                <EmptyState title="Nenhum evento organizado" />
+              ) : (
+                <div className="divide-y divide-line">
+                  {events.map(e => <EventCard key={e.id} event={e} onNavigate={onNavigate} />)}
+                </div>
+              )
+            )}
+
+            {tab === 'saved' && isOwn && (
+              saved.length === 0 ? (
+                <EmptyState
+                  title="Nada salvo ainda"
+                  text="Toque no marcador de uma publicação para guardar resumos, editais e avisos aqui."
+                />
+              ) : (
+                <div className="divide-y divide-line">
+                  {saved.map(p => <PostCard key={p.id} post={p} onNavigate={onNavigate} />)}
+                </div>
+              )
+            )}
+          </>
+        )}
+
+        {(tab === 'followers' || tab === 'following') && (
+          <PeopleList
+            users={tab === 'followers' ? followers : following}
+            empty={tab === 'followers' ? 'Ninguém segue esta conta ainda.' : 'Não segue ninguém ainda.'}
+            onNavigate={onNavigate}
+          />
+        )}
+      </Panel>
+
+      {isOwn && currentUser && (
+        <EditProfileModal user={currentUser} open={isEditOpen} onClose={() => setIsEditOpen(false)} />
       )}
 
+      <ReportModal
+        targetId={user.id}
+        targetType="user"
+        targetTitle={`${user.name} (@${user.username})`}
+        isOpen={showReport}
+        onClose={() => setShowReport(false)}
+      />
     </div>
   );
 };
+
+const PeopleList: React.FC<{ users: User[]; empty: string; onNavigate: Navigate }> = ({ users, empty, onNavigate }) =>
+  users.length === 0 ? (
+    <EmptyState title={empty} />
+  ) : (
+    <ul className="divide-y divide-line">
+      {users.map(u => (
+        <li key={u.id}>
+          <button
+            onClick={() => onNavigate('profile', u.id)}
+            className="w-full flex items-center gap-3 px-4 sm:px-5 py-3 text-left hover:bg-subtle"
+          >
+            <UserAvatar user={u} size="md" />
+            <span className="min-w-0 flex-1">
+              <span className="flex items-center gap-1.5">
+                <span className="font-medium text-ink truncate">{u.name}</span>
+                <RoleTag role={u.role} />
+              </span>
+              <span className="block text-[13px] text-muted truncate">
+                {ROLE_LABELS[u.role]} · {u.campus}
+              </span>
+            </span>
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+
+const EditProfileModal: React.FC<{ user: User; open: boolean; onClose: () => void }> = ({ user, open, onClose }) => {
+  const { updateProfile } = useAuth();
+  const [form, setForm] = useState(() => toForm(user));
+  const [lastOpen, setLastOpen] = useState(open);
+
+  // Recarrega os dados atuais sempre que o modal é aberto.
+  if (open !== lastOpen) {
+    setLastOpen(open);
+    if (open) setForm(toForm(user));
+  }
+
+  const set = <K extends keyof ReturnType<typeof toForm>>(key: K, value: ReturnType<typeof toForm>[K]) =>
+    setForm(f => ({ ...f, [key]: value }));
+
+  const courses = IFSP_CAMPUSES.find(c => c.name === form.campus)?.courses ?? [];
+
+  const save = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!form.name.trim() || !form.course.trim()) return;
+    updateProfile({
+      name: form.name.trim(),
+      bio: form.bio.trim(),
+      course: form.course.trim(),
+      campus: form.campus,
+      semester: form.semester ? Number(form.semester) : undefined,
+      avatarUrl: form.avatarUrl.trim(),
+      interests: form.interests.split(',').map(s => s.trim()).filter(Boolean).slice(0, 10)
+    });
+    onClose();
+    toast('Perfil atualizado');
+  };
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Editar perfil"
+      footer={
+        <>
+          <Button variant="ghost" size="sm" onClick={onClose}>Cancelar</Button>
+          <Button variant="primary" size="sm" onClick={() => save()} disabled={!form.name.trim() || !form.course.trim()}>
+            Salvar
+          </Button>
+        </>
+      }
+    >
+      <form onSubmit={save} className="space-y-4">
+        <div className="flex items-center gap-4">
+          <UserAvatar user={{ ...user, name: form.name || user.name, avatarUrl: form.avatarUrl }} size="lg" />
+          <Field label="Foto (link da imagem)" className="flex-1">
+            {id => (
+              <input
+                id={id}
+                type="url"
+                value={form.avatarUrl}
+                onChange={e => set('avatarUrl', e.target.value)}
+                placeholder="https://… (deixe vazio para usar iniciais)"
+                className={inputClass}
+              />
+            )}
+          </Field>
+        </div>
+
+        <Field label="Nome">
+          {id => <input id={id} type="text" required value={form.name} onChange={e => set('name', e.target.value)} className={inputClass} />}
+        </Field>
+
+        <Field label="Bio" hint={`${160 - form.bio.length} caracteres restantes`}>
+          {id => (
+            <textarea
+              id={id}
+              rows={3}
+              maxLength={160}
+              value={form.bio}
+              onChange={e => set('bio', e.target.value)}
+              className={textareaClass}
+            />
+          )}
+        </Field>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <Field label="Campus" className="sm:col-span-2">
+            {id => (
+              <select id={id} value={form.campus} onChange={e => set('campus', e.target.value)} className={inputClass}>
+                {IFSP_CAMPUSES.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+              </select>
+            )}
+          </Field>
+          <Field label="Semestre">
+            {id => (
+              <input
+                id={id}
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={12}
+                value={form.semester}
+                onChange={e => set('semester', e.target.value)}
+                className={inputClass}
+              />
+            )}
+          </Field>
+        </div>
+
+        <Field label="Curso">
+          {id => (
+            <>
+              <input
+                id={id}
+                type="text"
+                list={`${id}-courses`}
+                required
+                value={form.course}
+                onChange={e => set('course', e.target.value)}
+                className={inputClass}
+              />
+              <datalist id={`${id}-courses`}>
+                {courses.map(c => <option key={c} value={c} />)}
+              </datalist>
+            </>
+          )}
+        </Field>
+
+        <Field label="Interesses" hint="Separe por vírgula. Ex.: Python, Robótica, Iniciação Científica">
+          {id => (
+            <input id={id} type="text" value={form.interests} onChange={e => set('interests', e.target.value)} className={inputClass} />
+          )}
+        </Field>
+      </form>
+    </Modal>
+  );
+};
+
+function toForm(user: User) {
+  return {
+    name: user.name,
+    bio: user.bio ?? '',
+    course: user.course,
+    campus: user.campus,
+    semester: user.semester ? String(user.semester) : '',
+    avatarUrl: user.avatarUrl ?? '',
+    interests: user.interests.join(', ')
+  };
+}
